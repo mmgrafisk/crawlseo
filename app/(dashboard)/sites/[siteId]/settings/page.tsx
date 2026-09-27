@@ -1,46 +1,58 @@
-import {CheckCircle2, Database, Globe2, KeyRound, ShieldCheck} from "lucide-react";
+import {CheckCircle2, Database, KeyRound, ShieldCheck} from "lucide-react";
 import {auth} from "@/lib/auth";
 import {db} from "@/lib/db";
 import {redirect} from "next/navigation";
 import {PageHeader} from "@/components/ui/page-header";
 import {DeleteSiteButton} from "@/components/sites/delete-site-button";
 import {ApiKeysSection} from "@/components/settings/api-keys-section";
+import {GscConnectionCard} from "@/components/settings/gsc-connection-card";
+import {hasGoogleSearchConsoleConnection} from "@/lib/google/google-auth";
+import {canManageSite, getSiteAccess} from "@/lib/permissions";
 
 interface Props {
   params: Promise<{siteId: string}>;
+  searchParams: Promise<{gsc?: string}>;
 }
 
-export default async function SettingsPage({params}: Props) {
+export default async function SettingsPage({params, searchParams}: Props) {
   const session = await auth();
-  const {siteId} = await params;
+  const userId = session?.user?.id;
+  if (!userId) redirect("/login");
 
-  const site = await db.site.findUnique({
-    where: {id: siteId},
-    select: {
-      userId: true,
-      domain: true,
-      gscProperty: true,
-      marketCode: true,
-      contentLocale: true,
-      createdAt: true,
-      _count: {
-        select: {
-          keywords: true,
-          pages: true,
-          crawls: true,
-          vitals: true,
-          alerts: true,
-          savedKeywords: true,
+  const {siteId} = await params;
+  const {gsc} = await searchParams;
+  const access = await getSiteAccess(userId, siteId);
+  if (!access) redirect("/sites");
+
+  const [site, apiKeys, gscAuthorized] = await Promise.all([
+    db.site.findUnique({
+      where: {id: siteId},
+      select: {
+        domain: true,
+        gscProperty: true,
+        marketCode: true,
+        contentLocale: true,
+        createdAt: true,
+        _count: {
+          select: {
+            keywords: true,
+            pages: true,
+            crawls: true,
+            vitals: true,
+            alerts: true,
+            savedKeywords: true,
+          },
         },
       },
-    },
-  });
-  if (!site || site.userId !== session?.user?.id) redirect("/sites");
+    }),
+    db.apiKey.findMany({
+      where: {userId},
+      select: {provider: true, updatedAt: true},
+    }),
+    hasGoogleSearchConsoleConnection(userId).catch(() => false),
+  ]);
+  if (!site) redirect("/sites");
 
-  const apiKeys = await db.apiKey.findMany({
-    where: {userId: session.user.id},
-    select: {provider: true, updatedAt: true},
-  });
   const apiKeyStatus: Record<string, {connected: boolean; updatedAt?: string}> = {
     dataforseo: {connected: false},
     google_pagespeed: {connected: false},
@@ -52,34 +64,36 @@ export default async function SettingsPage({params}: Props) {
     };
   }
 
+  const canManage = canManageSite(access.role);
+
   return (
     <div>
       <PageHeader
         title="Forbindelser"
-        description={`Datakilder, API-nøgler og website-indstillinger for ${site.domain}. Eksterne tjenester bruger mindst mulige scopes, og Shopify forbliver read-only.`}
+        description={`Datakilder, API-nøgler og website-indstillinger for ${site.domain}. Medarbejderlogin og datakilde-godkendelser er adskilt, og Shopify forbliver read-only.`}
       />
 
       <div className="space-y-5">
         <section className="grid gap-3 lg:grid-cols-3">
-          <ConnectionSummary
-            icon={Globe2}
-            label="Google Search Console"
-            status={site.gscProperty ? "Forbundet" : "Ikke forbundet"}
-            detail={site.gscProperty || "Tilføj eller genforbind via website-flowet"}
-            connected={Boolean(site.gscProperty)}
+          <GscConnectionCard
+            siteId={siteId}
+            property={site.gscProperty}
+            authorized={gscAuthorized}
+            canManage={canManage}
+            feedback={gsc}
           />
           <ConnectionSummary
             icon={ShieldCheck}
             label="Adgangsmodel"
             status="Read-only"
-            detail="Reliva analyserer data og evidens uden at skrive ændringer til eksterne systemer."
+            detail="Eksterne dataforbindelser bruger mindst mulige scopes. Login i Reliva giver ikke i sig selv adgang til Search Console eller Shopify."
             connected
           />
           <ConnectionSummary
             icon={KeyRound}
             label="Eksterne API-nøgler"
             status={`${apiKeys.length} konfigureret`}
-            detail="Nøgler lagres server-side og vises aldrig igen i klartekst."
+            detail="Nøgler lagres krypteret server-side og vises aldrig igen i klartekst."
             connected={apiKeys.length > 0}
           />
         </section>
@@ -115,6 +129,7 @@ export default async function SettingsPage({params}: Props) {
               <DetailRow label="Domæne" value={site.domain} />
               <DetailRow label="Market" value={site.marketCode || "Ikke angivet"} />
               <DetailRow label="Content locale" value={site.contentLocale || "Ikke angivet"} />
+              <DetailRow label="Rolle" value={formatRole(access.role)} />
               <DetailRow
                 label="Tilføjet"
                 value={site.createdAt.toLocaleDateString("da-DK", {
@@ -127,15 +142,17 @@ export default async function SettingsPage({params}: Props) {
           </div>
         </section>
 
-        <section className="reliva-panel border-[#efcaca] p-5">
-          <h2 className="text-sm font-semibold text-[#c73f3f]">Farezone</h2>
-          <p className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Sletning fjerner websitet og dets tilknyttede CrawlSEO/Reliva-data permanent. Denne handling bruges ikke som del af Directus-migrationen og må ikke bruges til at rydde legacy-data.
-          </p>
-          <div className="mt-4">
-            <DeleteSiteButton siteId={siteId} domain={site.domain} />
-          </div>
-        </section>
+        {canManage ? (
+          <section className="reliva-panel border-[#efcaca] p-5">
+            <h2 className="text-sm font-semibold text-[#c73f3f]">Farezone</h2>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
+              Sletning fjerner dette standalone-websites tilknyttede CrawlSEO/Reliva-data permanent. Handlingen rører ikke Directus `rv_*`, og legacy-data må ikke bruges som oprydningsmål under migrationen.
+            </p>
+            <div className="mt-4">
+              <DeleteSiteButton siteId={siteId} domain={site.domain} />
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );
@@ -148,7 +165,7 @@ function ConnectionSummary({
   detail,
   connected,
 }: {
-  icon: typeof Globe2;
+  icon: typeof ShieldCheck;
   label: string;
   status: string;
   detail: string;
@@ -157,7 +174,11 @@ function ConnectionSummary({
   return (
     <div className="reliva-panel p-4">
       <div className="flex items-start gap-3">
-        <span className={connected ? "flex size-9 items-center justify-center rounded-xl bg-[#e5f7ef] text-[#159264]" : "flex size-9 items-center justify-center rounded-xl bg-[#eef2f6] text-[#7b8797]"}>
+        <span
+          className={connected
+            ? "flex size-9 items-center justify-center rounded-xl bg-[#e5f7ef] text-[#159264]"
+            : "flex size-9 items-center justify-center rounded-xl bg-[#eef2f6] text-[#7b8797]"}
+        >
           <Icon className="size-4.5" strokeWidth={1.8} />
         </span>
         <div className="min-w-0 flex-1">
@@ -189,4 +210,16 @@ function DetailRow({label, value}: {label: string; value: string}) {
       <dd className="max-w-[65%] break-words text-right text-xs font-medium text-foreground">{value}</dd>
     </div>
   );
+}
+
+function formatRole(role: string) {
+  return (
+    {
+      OWNER: "Ejer",
+      ADMIN: "Admin",
+      MANAGER: "Manager",
+      EMPLOYEE: "Medarbejder",
+      VIEWER: "Read-only",
+    } as Record<string, string>
+  )[role] || role;
 }
