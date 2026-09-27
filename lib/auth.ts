@@ -19,9 +19,10 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/webmasters.readonly",
-          access_type: "offline",
-          prompt: "consent",
+          // Employee authentication is deliberately separate from external
+          // product integrations. Search Console consent is requested only
+          // from the Connections workspace when the user chooses to connect it.
+          scope: "openid email profile",
         },
       },
     }),
@@ -40,8 +41,8 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
       });
 
       if (existing) {
-        // Legacy users are allowed during the organization migration. Once a
-        // user has memberships, at least one must be active.
+        // Transitional compatibility for pre-organization CrawlSEO users.
+        // Once memberships exist, at least one must remain active.
         if (existing.memberships.length === 0) return true;
         return existing.memberships.some((membership) => membership.status === "ACTIVE");
       }
@@ -63,33 +64,13 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
     },
   },
   events: {
-    async signIn({user, account}) {
+    async signIn({user}) {
       const email = user.email?.trim().toLowerCase();
       if (!email) return;
 
       const persistedUser = user.id
         ? {id: user.id}
         : await db.user.findUnique({where: {email}, select: {id: true}});
-
-      if (account?.access_token) {
-        try {
-          await db.user.update({
-            where: {email},
-            data: {
-              googleTokens: {
-                accessToken: account.access_token,
-                refreshToken: account.refresh_token,
-                expiresAt: account.expires_at ? account.expires_at * 1000 : undefined,
-                tokenType: account.token_type,
-                scope: account.scope,
-              },
-            },
-          });
-        } catch (error) {
-          console.error("Failed to save Google tokens:", error);
-        }
-      }
-
       if (!persistedUser) return;
 
       const invitation = await db.invitation.findFirst({
