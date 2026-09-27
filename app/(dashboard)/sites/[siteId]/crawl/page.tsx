@@ -32,12 +32,12 @@ export default async function CrawlPage({params}: Props) {
 
   const runningCrawl = await db.crawl.findFirst({
     where: {siteId, status: "RUNNING"},
-    select: {id: true, pagesFound: true, startedAt: true},
+    select: {id: true, pagesFound: true, startedAt: true, coveragePercent: true},
   });
 
   const latest = await db.crawl.findFirst({
-    where: {siteId, status: "COMPLETED"},
-    orderBy: {finishedAt: "desc"},
+    where: {siteId, status: {in: ["COMPLETED", "PARTIAL", "FAILED", "CANCELLED"]}},
+    orderBy: {startedAt: "desc"},
     include: {
       issues: {
         where: {
@@ -73,6 +73,7 @@ export default async function CrawlPage({params}: Props) {
     : null;
   const orphanCount = auditPages.filter((page) => page.internalLinks === 0 && page.url !== "/").length;
   const sortedIssues = [...realIssues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  const isComplete = latest?.status === "COMPLETED";
 
   return (
     <div className="space-y-5">
@@ -95,12 +96,30 @@ export default async function CrawlPage({params}: Props) {
 
       {runningCrawl ? (
         <section className="reliva-panel overflow-hidden border-[#bcdaf0] bg-[#f7fbfe] p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="size-2 rounded-full bg-[#388ee8] shadow-[0_0_0_4px_rgba(56,142,232,.12)]" />
-            <p className="text-sm font-semibold text-foreground">Scanning kører</p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-[#388ee8] shadow-[0_0_0_4px_rgba(56,142,232,.12)]" />
+              <p className="text-sm font-semibold text-foreground">Scanning kører</p>
+            </div>
+            {runningCrawl.coveragePercent != null ? (
+              <span className="font-data text-xs font-semibold text-[#347fbf]">
+                {Math.round(runningCrawl.coveragePercent)}%
+              </span>
+            ) : null}
           </div>
           <CrawlStatusPoller siteId={siteId} crawlId={runningCrawl.id} />
         </section>
+      ) : null}
+
+      {latest && !isComplete ? (
+        <CoverageWarning
+          status={latest.status}
+          coveragePercent={latest.coveragePercent}
+          coverageReason={latest.coverageReason}
+          pagesFound={latest.pagesFound}
+          attemptedUrls={latest.attemptedUrls}
+          failedUrls={latest.failedUrls}
+        />
       ) : null}
 
       {!latest ? (
@@ -108,7 +127,7 @@ export default async function CrawlPage({params}: Props) {
           <span className="flex size-12 items-center justify-center rounded-full bg-[#edf5ff] text-[#388ee8]">
             <SearchCheck className="size-5" strokeWidth={1.8} />
           </span>
-          <h2 className="mt-4 text-lg font-semibold text-foreground">Ingen scanning endnu</h2>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">Ingen afsluttet scanning endnu</h2>
           <p className="mt-1 max-w-lg text-sm leading-6 text-muted-foreground">
             Start første crawl for at kontrollere titles, descriptions, headings, canonicals, links, sitemap, schema og performance-signaler.
           </p>
@@ -122,14 +141,40 @@ export default async function CrawlPage({params}: Props) {
             <AuditMetric
               icon={Gauge}
               label="Site health"
-              value={latest.healthScore == null ? "—" : `${latest.healthScore}`}
-              suffix={latest.healthScore == null ? undefined : "/100"}
-              tone={(latest.healthScore ?? 0) >= 80 ? "green" : (latest.healthScore ?? 0) >= 60 ? "amber" : "red"}
+              value={isComplete && latest.healthScore != null ? `${latest.healthScore}` : "—"}
+              suffix={isComplete && latest.healthScore != null ? "/100" : undefined}
+              note={isComplete ? "Komplet scan" : "Skjult indtil scan er komplet"}
+              tone={isComplete ? healthTone(latest.healthScore) : "amber"}
             />
-            <AuditMetric icon={FileText} label="Crawlede sider" value={latest.pagesFound.toLocaleString()} tone="blue" />
-            <AuditMetric icon={AlertTriangle} label="Findings" value={realIssues.length.toLocaleString()} note={`${bySeverity.CRITICAL} kritiske`} tone="red" />
-            <AuditMetric icon={Layers3} label="Content score" value={avgContentScore == null ? "—" : `${avgContentScore}`} suffix={avgContentScore == null ? undefined : "/100"} tone="amber" />
-            <AuditMetric icon={SearchCheck} label="Orphan candidates" value={orphanCount.toLocaleString()} note="Kræver evidens" tone="blue" />
+            <AuditMetric
+              icon={FileText}
+              label="Observerede sider"
+              value={latest.pagesFound.toLocaleString("da-DK")}
+              note={isComplete ? "Komplet scanning" : scanStatusLabel(latest.status, latest.coveragePercent)}
+              tone={isComplete ? "blue" : "amber"}
+            />
+            <AuditMetric
+              icon={AlertTriangle}
+              label="Findings"
+              value={realIssues.length.toLocaleString("da-DK")}
+              note={isComplete ? `${bySeverity.CRITICAL} kritiske` : "Foreløbige findings"}
+              tone={isComplete ? "red" : "amber"}
+            />
+            <AuditMetric
+              icon={Layers3}
+              label="Content score"
+              value={isComplete && avgContentScore != null ? `${avgContentScore}` : "—"}
+              suffix={isComplete && avgContentScore != null ? "/100" : undefined}
+              note={isComplete ? "Ekstern heuristik" : "Skjult ved ufuldstændig dækning"}
+              tone="amber"
+            />
+            <AuditMetric
+              icon={SearchCheck}
+              label="Orphan candidates"
+              value={orphanCount.toLocaleString("da-DK")}
+              note={isComplete ? "Kræver separat evidens" : "Foreløbige kandidater"}
+              tone={isComplete ? "blue" : "amber"}
+            />
           </section>
 
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,.9fr)]">
@@ -139,8 +184,11 @@ export default async function CrawlPage({params}: Props) {
                   <h2 className="text-sm font-semibold text-foreground">Crawlede sider</h2>
                   <p className="mt-0.5 text-xs text-muted-foreground">{auditPages.length} sider med gemt metadata</p>
                 </div>
-                <span className="rounded-md bg-[#eef3f7] px-2 py-1 text-[10px] font-semibold text-muted-foreground">
-                  Seneste scan
+                <span className={cn(
+                  "rounded-md px-2 py-1 text-[10px] font-semibold",
+                  isComplete ? "bg-[#e5f7ef] text-[#16895f]" : "bg-[#fff4dd] text-[#9b6816]"
+                )}>
+                  {isComplete ? "Komplet scan" : "Ufuldstændig dækning"}
                 </span>
               </div>
               {auditPages.length ? (
@@ -163,7 +211,7 @@ export default async function CrawlPage({params}: Props) {
               )}
             </div>
 
-            <div className="reliva-panel overflow-hidden">
+            <div id="findings" className="reliva-panel overflow-hidden scroll-mt-20">
               <div className="border-b border-border px-4 py-3.5 sm:px-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -204,8 +252,19 @@ export default async function CrawlPage({params}: Props) {
                 </div>
               ) : (
                 <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center">
-                  <CheckCircle2 className="size-7 text-[#24a56f]" />
-                  <p className="mt-3 text-sm font-semibold text-foreground">Ingen findings i seneste scan</p>
+                  {isComplete ? (
+                    <CheckCircle2 className="size-7 text-[#24a56f]" />
+                  ) : (
+                    <SearchCheck className="size-7 text-[#388ee8]" />
+                  )}
+                  <p className="mt-3 text-sm font-semibold text-foreground">
+                    {isComplete ? "Ingen findings i den komplette scanning" : "Ingen findings i de observerede sider"}
+                  </p>
+                  <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
+                    {isComplete
+                      ? "Resultatet gælder den dokumenterede scan-dækning."
+                      : "Det er ikke et OK-signal. Scan-dækningen er ufuldstændig."}
+                  </p>
                 </div>
               )}
 
@@ -221,6 +280,39 @@ export default async function CrawlPage({params}: Props) {
         </>
       )}
     </div>
+  );
+}
+
+function CoverageWarning({
+  status,
+  coveragePercent,
+  coverageReason,
+  pagesFound,
+  attemptedUrls,
+  failedUrls,
+}: {
+  status: string;
+  coveragePercent: number | null;
+  coverageReason: string | null;
+  pagesFound: number;
+  attemptedUrls: number;
+  failedUrls: number;
+}) {
+  return (
+    <section className="reliva-panel border-[#ead7aa] bg-[#fffaf0] px-4 py-4 sm:px-5">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 size-4.5 shrink-0 text-[#b97b13]" strokeWidth={1.9} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#80570e]">Denne scanning må ikke læses som komplet/OK</p>
+          <p className="mt-1 text-xs leading-5 text-[#76664b]">
+            {scanStatusLabel(status, coveragePercent)} · {pagesFound.toLocaleString("da-DK")} sider observeret
+            {attemptedUrls > 0 ? ` · ${attemptedUrls.toLocaleString("da-DK")} URL-forsøg` : ""}
+            {failedUrls > 0 ? ` · ${failedUrls.toLocaleString("da-DK")} fejlede` : ""}.
+            {coverageReason ? ` ${coverageReason}` : " Findings og kandidater er foreløbige, indtil dækningen er komplet."}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -263,6 +355,20 @@ function AuditMetric({
       {note ? <p className="mt-2 text-[11px] text-muted-foreground">{note}</p> : null}
     </div>
   );
+}
+
+function healthTone(score: number | null) {
+  if (score == null) return "blue" as const;
+  if (score >= 80) return "green" as const;
+  if (score >= 60) return "amber" as const;
+  return "red" as const;
+}
+
+function scanStatusLabel(status: string, coveragePercent: number | null) {
+  if (status === "PARTIAL") return `Delvis scanning${coveragePercent != null ? ` · ${Math.round(coveragePercent)}% dækning` : ""}`;
+  if (status === "FAILED") return "Scanning fejlede";
+  if (status === "CANCELLED") return "Scanning annulleret";
+  return "Ufuldstændig scanning";
 }
 
 function severityRank(severity: string) {
