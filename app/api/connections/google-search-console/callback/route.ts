@@ -1,7 +1,7 @@
 import {cookies} from "next/headers";
 import {auth} from "@/lib/auth";
 import {db} from "@/lib/db";
-import {getSiteAccess} from "@/lib/permissions";
+import {canManageSite, getSiteAccess} from "@/lib/permissions";
 import {
   exchangeGscAuthorizationCode,
   getGscRedirectUri,
@@ -53,6 +53,9 @@ export async function GET(request: Request) {
   const access = await getSiteAccess(userId, expected.siteId);
   if (!access) {
     return Response.json({error: "Site not found or unauthorized"}, {status: 404});
+  }
+  if (!canManageSite(access.role)) {
+    return settingsRedirect(request.url, expected.siteId, "forbidden");
   }
 
   if (requestUrl.searchParams.get("error")) {
