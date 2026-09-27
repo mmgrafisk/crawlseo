@@ -1,0 +1,55 @@
+name: Reliva Foundation Verify
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Foundation verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Refresh dependency lock
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint changed TypeScript files
+        run: |
+          FILES=$(git diff --name-only --diff-filter=d origin/main...HEAD -- '*.ts' '*.tsx' || true)
+          if [ -z "$FILES" ]; then
+            echo "No changed TypeScript files"
+          else
+            echo "$FILES" | xargs npx eslint
+          fi
+
+      - name: Test
+        run: npm test
+
+      - name: Upload refreshed lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reliva-package-lock
+          path: package-lock.json
+          if-no-files-found: error
