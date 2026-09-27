@@ -1,0 +1,116 @@
+@layer base {
+  :root,
+  html.light,
+  html.light:not(.dark) {
+    --background: #f6f8fb;
+    --foreground: #172033;
+    --card: #ffffff;
+    --card-foreground: #172033;
+    --popover: #ffffff;
+    --popover-foreground: #172033;
+    --primary: #24a56f;
+    --primary-foreground: #ffffff;
+    --secondary: #eef3f7;
+    --secondary-foreground: #243146;
+    --muted: #eef2f6;
+    --muted-foreground: #6f7e92;
+    --accent: #e8f8f1;
+    --accent-foreground: #157a55;
+    --destructive: #e64949;
+    --border: #e3e9f0;
+    --input: #e7edf3;
+    --ring: #3aa9e8;
+    --signal: #24a56f;
+    --signal-muted: #e5f7ef;
+    --danger: #e64949;
+    --warning: #e8a223;
+    --info: #388ee8;
+    --brand: #24a56f;
+    --ink: #172033;
+    --panel: #ffffff;
+    --rail: #162130;
+    --chart-1: #6b47ea;
+    --chart-2: #338de8;
+    --chart-3: #24a56f;
+    --chart-4: #e8a223;
+    --chart-5: #8a97a8;
+    --sidebar: #172331;
+    --sidebar-foreground: #e8eef5;
+    --sidebar-primary: #ffffff;
+    --sidebar-primary-foreground: #172331;
+    --sidebar-accent: #25364a;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgba(255,255,255,.07);
+    --sidebar-ring: #8cc8f4;
+    --shadow-1: 0 1px 2px rgba(23,32,51,.04);
+    --shadow-2: 0 8px 24px rgba(23,32,51,.06);
+    --shadow-3: 0 16px 36px rgba(23,32,51,.08);
+    --shadow-4: 0 24px 50px rgba(23,32,51,.10);
+    --shadow-5: 0 32px 70px rgba(23,32,51,.12);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@layer components {
+  .reliva-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top right, rgba(87, 181, 235, 0.07), transparent 28rem),
+      var(--background);
+  }
+
+  .reliva-sidebar {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.025), transparent 16rem),
+      #172331;
+    color: #eef4fa;
+  }
+
+  .reliva-topbar {
+    background: rgba(255,255,255,.86);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .reliva-panel {
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.96);
+    border-radius: 14px;
+    box-shadow: var(--shadow-1);
+  }
+
+  .reliva-panel-hover {
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .reliva-panel-hover:hover {
+    border-color: #cfd9e4;
+    box-shadow: var(--shadow-2);
+    transform: translateY(-1px);
+  }
+
+  .reliva-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .reliva-kpi {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.04em;
+  }
+
+  .reliva-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
+  }
+}
