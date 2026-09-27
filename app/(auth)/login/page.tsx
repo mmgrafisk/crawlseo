@@ -82,7 +82,7 @@ export default async function LoginPage() {
 
             <div className="mt-5 border-t border-[#edf1f4] pt-5">
               <p className="text-xs leading-5 text-[#7b8797]">
-                Login er kun for inviterede medarbejdere. Eksterne integrationer bruger mindst mulige scopes, og Shopify forbliver read-only.
+                Medarbejder- og rolleadgang bygges ind i Relivas organisationsmodel. Eksterne integrationer bruger mindst mulige scopes, og Shopify forbliver read-only.
               </p>
             </div>
           </div>
