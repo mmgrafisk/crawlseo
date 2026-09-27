@@ -1,42 +1,44 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { ReauthRequiredError } from "@/lib/google";
-import { runGSCSync } from "@/lib/workers/gsc-sync";
+import {auth} from "@/lib/auth";
+import {ReauthRequiredError} from "@/lib/google";
+import {canWriteWorkspace, getSiteAccess} from "@/lib/permissions";
+import {runGSCSync} from "@/lib/workers/gsc-sync";
 
 export async function POST(req: Request) {
   try {
     const session = await auth();
-
-    if (!session?.user?.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = session?.user?.id;
+    if (!userId) {
+      return Response.json({error: "Unauthorized"}, {status: 401});
     }
 
-    const { siteId } = (await req.json()) as { siteId: string };
+    const {siteId} = (await req.json()) as {siteId?: string};
+    if (!siteId) {
+      return Response.json({error: "Missing siteId"}, {status: 400});
+    }
 
-    // Verify site belongs to user
-    const site = await db.site.findUnique({
-      where: { id: siteId },
-      select: { userId: true, gscProperty: true },
-    });
+    const access = await getSiteAccess(userId, siteId);
+    if (!access) {
+      return Response.json({error: "Site not found"}, {status: 404});
+    }
+    if (!canWriteWorkspace(access.role)) {
+      return Response.json({error: "Write access required to refresh data"}, {status: 403});
+    }
 
-    if (!site || site.userId !== session.user.id) {
+    const site = access.site;
+    const fullSite = await import("@/lib/db").then(({db}) =>
+      db.site.findUnique({
+        where: {id: site.id},
+        select: {gscProperty: true},
+      })
+    );
+    if (!fullSite?.gscProperty) {
       return Response.json(
-        { error: "Site not found or unauthorized" },
-        { status: 404 }
+        {error: "Site does not have GSC property connected"},
+        {status: 400}
       );
     }
 
-    if (!site.gscProperty) {
-      return Response.json(
-        { error: "Site does not have GSC property connected" },
-        { status: 400 }
-      );
-    }
-
-    // Same fetch + upsert as the background worker, so both paths write
-    // identical Keyword/Page rows (see gscDate for the date convention).
-    const result = await runGSCSync(session.user.id, siteId, site.gscProperty);
-
+    const result = await runGSCSync(userId, siteId, fullSite.gscProperty);
     return Response.json({
       success: true,
       keywordsInserted: result.keywordsInserted,
@@ -45,18 +47,15 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof ReauthRequiredError) {
       return Response.json(
-        { error: error.message, code: "REAUTH_REQUIRED" },
-        { status: 401 }
+        {error: error.message, code: "REAUTH_REQUIRED"},
+        {status: 401}
       );
     }
 
     console.error("Error syncing GSC data:", error);
-
     return Response.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to sync GSC data",
-      },
-      { status: 500 }
+      {error: error instanceof Error ? error.message : "Failed to sync GSC data"},
+      {status: 500}
     );
   }
 }
