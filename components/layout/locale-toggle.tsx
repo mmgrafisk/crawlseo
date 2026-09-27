@@ -21,7 +21,7 @@ export function LocaleToggle() {
   }
 
   return (
-    <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-white p-0.5 sm:flex">
+    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-white p-0.5">
       {locales.map((option) => (
         <button
           key={option}
