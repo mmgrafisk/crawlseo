@@ -74,7 +74,7 @@ export async function normalizeRelivaCrawl(crawlId: string, result: CrawlResult)
   });
   if (!crawl) return;
 
-  const [pages, internalTargets, broken] = await Promise.all([
+  const [pages, internalTargets, broken, findingCount] = await Promise.all([
     db.auditPage.findMany({
       where: {crawlId},
       select: {url: true},
@@ -90,6 +90,9 @@ export async function normalizeRelivaCrawl(crawlId: string, result: CrawlResult)
       distinct: ["url"],
       select: {url: true},
       take: 10000,
+    }),
+    db.crawlIssue.count({
+      where: {crawlId, type: {not: "CRAWL_SUMMARY"}},
     }),
   ]);
 
@@ -121,6 +124,7 @@ export async function normalizeRelivaCrawl(crawlId: string, result: CrawlResult)
       sitemapUrls: result.sitemapUrls,
       coveragePercent: coverage.coveragePercent,
       coverageReason: coverage.reason,
+      issuesFound: findingCount,
       healthScore: coverage.status === "COMPLETED" ? result.healthScore : null,
     },
   });
