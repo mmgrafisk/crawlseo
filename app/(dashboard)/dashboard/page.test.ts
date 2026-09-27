@@ -6,6 +6,7 @@ import {describe, expect, it, vi} from "vitest";
 const counts = vi.hoisted(() => ({keywords: 0, pages: 0, crawls: 0}));
 
 vi.mock("@/lib/auth", () => ({auth: async () => ({user: {id: "user-1"}})}));
+vi.mock("@/lib/permissions", () => ({getAccessibleOrganizationIds: async () => []}));
 vi.mock("@/lib/db", () => ({
   db: {
     site: {
