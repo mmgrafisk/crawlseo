@@ -8,6 +8,7 @@ import {
   Bot,
   ChartNoAxesCombined,
   CircleGauge,
+  ClipboardCheck,
   FileSearch,
   Globe2,
   LayoutDashboard,
@@ -48,6 +49,7 @@ export function SidebarNav({
       items: [
         {href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard, exact: true},
         {href: "/sites", label: t("websites"), icon: Globe2, exact: true},
+        {href: "/tasks", label: t("tasks"), icon: ClipboardCheck},
       ],
     },
   ];
