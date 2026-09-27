@@ -8,7 +8,7 @@
     "websites": "Websites",
     "seoAudit": "SEO Audit",
     "pagesContent": "Pages & content",
-    "tasks": "Tasks",
+    "tasks": "Tasks & history",
     "opportunities": "Opportunities",
     "googleImpact": "Google & impact",
     "performance": "Performance",
@@ -21,6 +21,7 @@
     "aiMcp": "AI & MCP",
     "connections": "Connections",
     "settings": "Settings",
+    "workspaces": "Workspaces",
     "seoWorkspace": "SEO workspace",
     "research": "Research",
     "system": "System"
