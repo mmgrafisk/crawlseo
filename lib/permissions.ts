@@ -21,7 +21,7 @@ export async function getAccessibleOrganizationIds(userId: string) {
 export async function getSiteAccess(userId: string, siteId: string) {
   const site = await db.site.findUnique({
     where: {id: siteId},
-    select: {id: true, userId: true, organizationId: true},
+    select: {id: true, userId: true, organizationId: true, domain: true},
   });
   if (!site) return null;
 
