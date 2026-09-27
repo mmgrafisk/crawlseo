@@ -1,4 +1,5 @@
 import {auth} from "@/lib/auth";
+import {db} from "@/lib/db";
 import {ReauthRequiredError} from "@/lib/google";
 import {canWriteWorkspace, getSiteAccess} from "@/lib/permissions";
 import {runGSCSync} from "@/lib/workers/gsc-sync";
@@ -24,13 +25,10 @@ export async function POST(req: Request) {
       return Response.json({error: "Write access required to refresh data"}, {status: 403});
     }
 
-    const site = access.site;
-    const fullSite = await import("@/lib/db").then(({db}) =>
-      db.site.findUnique({
-        where: {id: site.id},
-        select: {gscProperty: true},
-      })
-    );
+    const fullSite = await db.site.findUnique({
+      where: {id: siteId},
+      select: {gscProperty: true},
+    });
     if (!fullSite?.gscProperty) {
       return Response.json(
         {error: "Site does not have GSC property connected"},
