@@ -1,6 +1,6 @@
-# CrawlSEO upstream README archive
+# CrawlSEO upstream README summary
 
-This file preserves the README text that existed in the CrawlSEO fork before the Reliva Visibility product re-foundation. It is retained for upstream context and feature provenance; it is not the active Reliva product specification.
+This file summarizes the README and feature framing that existed in the CrawlSEO fork before the Reliva Visibility product re-foundation. It is retained for upstream context and feature provenance; it is not the active Reliva product specification.
 
 ---
 
@@ -8,7 +8,7 @@ This file preserves the README text that existed in the CrawlSEO fork before the
 
 ### Open-source SEO monitoring for founders, not SEO specialists
 
-Google Search Console + Site Crawler + Core Web Vitals + MCP Server — all in one self-hosted dashboard. Free forever.
+Google Search Console + Site Crawler + Core Web Vitals + MCP Server — all in one self-hosted dashboard.
 
 ## Upstream feature set
 
