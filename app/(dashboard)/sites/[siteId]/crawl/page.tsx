@@ -1,9 +1,6 @@
-import Link from "next/link";
 import {redirect} from "next/navigation";
 import {
   AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
   FileText,
   Gauge,
   Layers3,
@@ -14,6 +11,7 @@ import {db} from "@/lib/db";
 import {CrawlButton} from "@/components/sites/action-buttons";
 import {CrawlStatusPoller} from "@/components/sites/crawl-status-poller";
 import {CrawledPagesTable} from "@/components/sites/crawled-pages-table";
+import {FindingWorkspace} from "@/components/sites/finding-workspace";
 import {cn} from "@/lib/utils";
 
 interface Props {
@@ -22,13 +20,14 @@ interface Props {
 
 export default async function CrawlPage({params}: Props) {
   const session = await auth();
+  const userId = session?.user?.id;
   const {siteId} = await params;
 
   const site = await db.site.findUnique({
     where: {id: siteId},
-    select: {userId: true, domain: true},
+    select: {userId: true, organizationId: true, domain: true},
   });
-  if (!site || site.userId !== session?.user?.id) redirect("/sites");
+  if (!site || site.userId !== userId) redirect("/sites");
 
   const runningCrawl = await db.crawl.findFirst({
     where: {siteId, status: "RUNNING"},
@@ -40,9 +39,7 @@ export default async function CrawlPage({params}: Props) {
     orderBy: {startedAt: "desc"},
     include: {
       issues: {
-        where: {
-          NOT: {details: {path: ["kind"], equals: "crawl_summary"}},
-        },
+        where: {type: {not: "CRAWL_SUMMARY"}},
         take: 200,
       },
     },
@@ -56,12 +53,7 @@ export default async function CrawlPage({params}: Props) {
       })
     : [];
 
-  const realIssues =
-    latest?.issues.filter((issue) => {
-      const kind = (issue.details as {kind?: string} | null)?.kind;
-      return kind !== "crawl_summary" && kind !== "content_score";
-    }) || [];
-
+  const realIssues = latest?.issues ?? [];
   const bySeverity = {
     CRITICAL: realIssues.filter((issue) => issue.severity === "CRITICAL").length,
     WARNING: realIssues.filter((issue) => issue.severity === "WARNING").length,
@@ -71,9 +63,52 @@ export default async function CrawlPage({params}: Props) {
   const avgContentScore = auditPages.length
     ? Math.round(auditPages.reduce((sum, page) => sum + page.contentScore, 0) / auditPages.length)
     : null;
-  const orphanCount = auditPages.filter((page) => page.internalLinks === 0 && page.url !== "/").length;
+  const orphanCount = realIssues.filter((issue) => issue.type === "ORPHAN_PAGE").length;
   const sortedIssues = [...realIssues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
   const isComplete = latest?.status === "COMPLETED";
+
+  const membership = site.organizationId && userId
+    ? await db.membership.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: site.organizationId,
+            userId,
+          },
+        },
+        select: {status: true, role: true},
+      })
+    : null;
+  const canCreateTasks = Boolean(
+    membership && membership.status === "ACTIVE" && membership.role !== "VIEWER"
+  );
+
+  const existingTasks = site.organizationId && realIssues.length
+    ? await db.task.findMany({
+        where: {
+          organizationId: site.organizationId,
+          findingId: {in: realIssues.map((issue) => issue.id)},
+          status: {not: "IGNORED"},
+        },
+        select: {findingId: true},
+      })
+    : [];
+  const taskFindingIds = new Set(existingTasks.map((task) => task.findingId).filter(Boolean));
+  const typeCounts = new Map<string, number>();
+  for (const issue of realIssues) typeCounts.set(issue.type, (typeCounts.get(issue.type) ?? 0) + 1);
+
+  const findingRows = sortedIssues.map((issue) => {
+    const details = issue.details as {howToFix?: string} | null;
+    return {
+      id: issue.id,
+      url: issue.url,
+      type: issue.type,
+      severity: issue.severity,
+      message: issue.message,
+      howToFix: details?.howToFix ?? null,
+      sameTypeCount: typeCounts.get(issue.type) ?? 1,
+      taskSent: taskFindingIds.has(issue.id),
+    };
+  });
 
   return (
     <div className="space-y-5">
@@ -177,106 +212,44 @@ export default async function CrawlPage({params}: Props) {
             />
           </section>
 
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,.9fr)]">
-            <div className="reliva-panel overflow-hidden">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3.5 sm:px-5">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">Crawlede sider</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{auditPages.length} sider med gemt metadata</p>
-                </div>
-                <span className={cn(
-                  "rounded-md px-2 py-1 text-[10px] font-semibold",
-                  isComplete ? "bg-[#e5f7ef] text-[#16895f]" : "bg-[#fff4dd] text-[#9b6816]"
-                )}>
-                  {isComplete ? "Komplet scan" : "Ufuldstændig dækning"}
-                </span>
+          <section className="reliva-panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3.5 sm:px-5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Crawlede sider</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">{auditPages.length} sider med gemt metadata</p>
               </div>
-              {auditPages.length ? (
-                <CrawledPagesTable
-                  rows={auditPages.slice(0, 100).map((page) => ({
-                    id: page.id,
-                    url: page.url,
-                    statusCode: page.statusCode,
-                    contentScore: page.contentScore,
-                    wordCount: page.wordCount,
-                    h1Count: page.h1Count,
-                    imageCount: page.imageCount,
-                    imagesMissingAlt: page.imagesMissingAlt,
-                    internalLinks: page.internalLinks,
-                    responseTimeMs: page.responseTimeMs,
-                  }))}
-                />
-              ) : (
-                <div className="px-5 py-10 text-sm text-muted-foreground">Ingen crawl-data gemt.</div>
-              )}
+              <span className={cn(
+                "rounded-md px-2 py-1 text-[10px] font-semibold",
+                isComplete ? "bg-[#e5f7ef] text-[#16895f]" : "bg-[#fff4dd] text-[#9b6816]"
+              )}>
+                {isComplete ? "Komplet scan" : "Ufuldstændig dækning"}
+              </span>
             </div>
-
-            <div id="findings" className="reliva-panel overflow-hidden scroll-mt-20">
-              <div className="border-b border-border px-4 py-3.5 sm:px-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">Findings</h2>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {bySeverity.CRITICAL} kritiske · {bySeverity.WARNING} advarsler · {bySeverity.INFO} info
-                    </p>
-                  </div>
-                  <span className="text-xs font-semibold text-[#347fbf]">{realIssues.length}</span>
-                </div>
-              </div>
-
-              {sortedIssues.length ? (
-                <div className="divide-y divide-border">
-                  {sortedIssues.slice(0, 14).map((issue) => {
-                    const details = issue.details as {howToFix?: string; kind?: string} | null;
-                    return (
-                      <div key={issue.id} className="px-4 py-3 sm:px-5">
-                        <div className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-start gap-2.5">
-                          <span className={cn("mt-1.5 size-2 rounded-full", severityDot(issue.severity))} />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold leading-5 text-foreground">{issue.message}</p>
-                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{issue.url}</p>
-                          </div>
-                          <span className={cn("rounded-md px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.04em]", severityBadge(issue.severity))}>
-                            {severityLabel(issue.severity)}
-                          </span>
-                        </div>
-                        {details?.howToFix ? (
-                          <p className="mt-2 pl-[18px] text-[11px] leading-5 text-muted-foreground">
-                            <span className="font-semibold text-foreground/80">Forslag: </span>
-                            {details.howToFix}
-                          </p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center">
-                  {isComplete ? (
-                    <CheckCircle2 className="size-7 text-[#24a56f]" />
-                  ) : (
-                    <SearchCheck className="size-7 text-[#388ee8]" />
-                  )}
-                  <p className="mt-3 text-sm font-semibold text-foreground">
-                    {isComplete ? "Ingen findings i den komplette scanning" : "Ingen findings i de observerede sider"}
-                  </p>
-                  <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
-                    {isComplete
-                      ? "Resultatet gælder den dokumenterede scan-dækning."
-                      : "Det er ikke et OK-signal. Scan-dækningen er ufuldstændig."}
-                  </p>
-                </div>
-              )}
-
-              {realIssues.length > 14 ? (
-                <div className="border-t border-border px-4 py-3 sm:px-5">
-                  <Link href="#findings" className="inline-flex items-center gap-1 text-xs font-semibold text-[#347fbf]">
-                    Vis flere findings <ArrowRight className="size-3.5" />
-                  </Link>
-                </div>
-              ) : null}
-            </div>
+            {auditPages.length ? (
+              <CrawledPagesTable
+                rows={auditPages.slice(0, 100).map((page) => ({
+                  id: page.id,
+                  url: page.url,
+                  statusCode: page.statusCode,
+                  contentScore: page.contentScore,
+                  wordCount: page.wordCount,
+                  h1Count: page.h1Count,
+                  imageCount: page.imageCount,
+                  imagesMissingAlt: page.imagesMissingAlt,
+                  internalLinks: page.internalLinks,
+                  responseTimeMs: page.responseTimeMs,
+                }))}
+              />
+            ) : (
+              <div className="px-5 py-10 text-sm text-muted-foreground">Ingen crawl-data gemt.</div>
+            )}
           </section>
+
+          <FindingWorkspace
+            siteId={siteId}
+            findings={findingRows}
+            canCreateTasks={canCreateTasks}
+          />
         </>
       )}
     </div>
@@ -373,20 +346,4 @@ function scanStatusLabel(status: string, coveragePercent: number | null) {
 
 function severityRank(severity: string) {
   return severity === "CRITICAL" ? 0 : severity === "WARNING" ? 1 : 2;
-}
-
-function severityDot(severity: string) {
-  return severity === "CRITICAL" ? "bg-[#e64949]" : severity === "WARNING" ? "bg-[#e8a223]" : "bg-[#388ee8]";
-}
-
-function severityBadge(severity: string) {
-  return severity === "CRITICAL"
-    ? "bg-[#ffeded] text-[#c93434]"
-    : severity === "WARNING"
-      ? "bg-[#fff4dd] text-[#a96b08]"
-      : "bg-[#eaf4ff] text-[#2f74b7]";
-}
-
-function severityLabel(severity: string) {
-  return severity === "CRITICAL" ? "Kritisk" : severity === "WARNING" ? "Advarsel" : "Info";
 }
