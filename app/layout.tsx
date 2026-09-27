@@ -1,6 +1,7 @@
 import type {Metadata} from "next";
 import {Inter, IBM_Plex_Mono} from "next/font/google";
 import {NextIntlClientProvider} from "next-intl";
+import {getLocale} from "next-intl/server";
 import "./globals.css";
 import "./reliva.css";
 
@@ -32,10 +33,12 @@ export const metadata: Metadata = {
   description: "SEO operations, monitoring, tasks and evidence in one workspace.",
 };
 
-export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
+export default async function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
+  const locale = await getLocale();
+
   return (
     <html
-      lang="da"
+      lang={locale}
       className={`${inter.variable} ${interHeading.variable} ${plexMono.variable} light h-full`}
       suppressHydrationWarning
     >
