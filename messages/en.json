@@ -1,0 +1,49 @@
+{
+  "brand": {
+    "name": "Reliva",
+    "product": "Visibility"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "websites": "Websites",
+    "seoAudit": "SEO Audit",
+    "pagesContent": "Pages & content",
+    "tasks": "Tasks & history",
+    "opportunities": "Opportunities",
+    "googleImpact": "Google & impact",
+    "performance": "Performance",
+    "shopify": "Shopify",
+    "international": "International",
+    "monitoring": "Monitoring",
+    "operations": "Operations",
+    "keywordResearch": "Keyword research",
+    "backlinks": "Backlinks",
+    "aiMcp": "AI & MCP",
+    "connections": "Connections",
+    "settings": "Settings",
+    "workspaces": "Workspaces",
+    "seoWorkspace": "SEO workspace",
+    "research": "Research",
+    "system": "System"
+  },
+  "common": {
+    "searchPlaceholder": "Search websites, pages, findings or tasks…",
+    "newScan": "New scan",
+    "connected": "Connected",
+    "signOut": "Sign out"
+  },
+  "login": {
+    "eyebrow": "SEO operations workspace",
+    "heroTitle": "From finding to verified improvement.",
+    "heroDescription": "Reliva brings scans, Google data, Shopify evidence, tasks and verification into one calm operational workspace.",
+    "benefitShopify": "Read-only Shopify",
+    "benefitEvidence": "Evidence-backed findings",
+    "benefitTasks": "Tasks with verification",
+    "benefitGoogle": "GSC & Core Web Vitals",
+    "employeeAccess": "Employee access · Reliva Visibility",
+    "title": "Sign in to Reliva",
+    "description": "Secure employee access to SEO, tasks, data and verification.",
+    "google": "Continue with Google",
+    "inviteOnly": "Sign-in is invite-only for employees. External integrations request the minimum required scopes, and Shopify remains read-only."
+  }
+}

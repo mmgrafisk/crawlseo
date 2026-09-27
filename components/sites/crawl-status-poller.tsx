@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import {useCallback, useEffect, useState} from "react";
+import {useRouter} from "next/navigation";
+import {Loader2} from "lucide-react";
 
 interface CrawlStatusPollerProps {
   siteId: string;
@@ -17,47 +17,64 @@ interface CrawlStatus {
   healthScore: number | null;
   startedAt: string | null;
   finishedAt: string | null;
+  discoveredUrls: number;
+  attemptedUrls: number;
+  fetchedUrls: number;
+  failedUrls: number;
+  coveragePercent: number | null;
+  coverageReason: string | null;
 }
 
-export function CrawlStatusPoller({ siteId, crawlId }: CrawlStatusPollerProps) {
+const terminalStates = new Set(["COMPLETED", "PARTIAL", "FAILED", "CANCELLED"]);
+
+export function CrawlStatusPoller({siteId, crawlId}: CrawlStatusPollerProps) {
   const router = useRouter();
   const [status, setStatus] = useState<CrawlStatus | null>(null);
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(`/api/sites/${siteId}/crawl/${crawlId}/status`);
-      if (!res.ok) return;
-      const data = (await res.json()) as CrawlStatus;
+      const response = await fetch(`/api/sites/${siteId}/crawl/${crawlId}/status`, {
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as CrawlStatus;
       setStatus(data);
-      if (data.status === "COMPLETED" || data.status === "FAILED") {
-        router.refresh();
-      }
+      if (terminalStates.has(data.status)) router.refresh();
     } catch {
-      // ignore
+      // A temporary polling error must not convert the scan itself to failed.
     }
   }, [siteId, crawlId, router]);
 
   useEffect(() => {
-    poll();
-    const interval = setInterval(poll, 3000);
-    return () => clearInterval(interval);
+    // Timers are the external subscription here; keeping state updates inside
+    // their callbacks avoids an effect-driven synchronous render cascade.
+    const initial = window.setTimeout(() => void poll(), 250);
+    const interval = window.setInterval(() => void poll(), 3000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
   }, [poll]);
 
-  const isRunning = !status || status.status === "RUNNING" || status.status === "PENDING";
-
-  if (!isRunning) return null;
+  if (status && terminalStates.has(status.status)) return null;
 
   return (
-    <div className="panel mb-6 flex items-center gap-3 border-primary/30 bg-primary/5 px-5 py-4">
-      <Loader2 className="size-5 animate-spin text-primary" />
-      <div>
-        <p className="text-sm font-medium text-foreground">
-          Crawl in progress...
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {status?.pagesFound ?? 0} pages found · {status?.issuesFound ?? 0} issues
+    <div className="flex items-center gap-3">
+      <Loader2 className="size-4 animate-spin text-[#388ee8]" />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold text-foreground">Crawler website…</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {status?.fetchedUrls || status?.pagesFound
+            ? `${(status.fetchedUrls || status.pagesFound).toLocaleString("da-DK")} sider gemt`
+            : "Finder og henter interne URL'er"}
+          {status?.failedUrls ? ` · ${status.failedUrls.toLocaleString("da-DK")} fejlede` : ""}
         </p>
       </div>
+      {status?.coveragePercent != null ? (
+        <span className="font-data text-xs font-semibold text-[#347fbf]">
+          {Math.round(status.coveragePercent)}%
+        </span>
+      ) : null}
     </div>
   );
 }

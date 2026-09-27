@@ -1,24 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import {usePathname} from "next/navigation";
+import {useTranslations} from "next-intl";
 import {
+  Activity,
+  ChartNoAxesCombined,
+  ClipboardCheck,
+  Globe2,
+  Languages,
   LayoutDashboard,
-  Globe,
-  Search,
-  FileText,
-  Bug,
-  Gauge,
-  Lightbulb,
-  Bell,
-  Settings,
-  Bookmark,
-  Bot,
-  Link as LinkIcon,
+  PlugZap,
   SearchCheck,
+  ShoppingBag,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
+import {RELIVA_PRIMARY_AREAS, areaHref, type RelivaAreaKey} from "@/lib/reliva-ia";
+import {cn} from "@/lib/utils";
 
 type NavItem = {
   href: string;
@@ -28,93 +27,98 @@ type NavItem = {
 };
 
 type NavGroup = {
-  label: string;
+  label?: string;
   items: NavItem[];
+};
+
+const areaIcons: Record<RelivaAreaKey, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  seoAudit: SearchCheck,
+  tasks: ClipboardCheck,
+  shopify: ShoppingBag,
+  international: Languages,
+  googleImpact: ChartNoAxesCombined,
+  monitoring: Activity,
+  operations: Wrench,
+  connections: PlugZap,
 };
 
 export function SidebarNav({
   sites,
   collapsed = false,
+  onNavigate,
 }: {
-  sites: { id: string; domain: string }[];
+  sites: {id: string; domain: string}[];
   collapsed?: boolean;
+  onNavigate?: () => void;
 }) {
+  const t = useTranslations("nav");
   const pathname = usePathname();
   const match = pathname.match(/\/sites\/([^/]+)/);
-  const activeSiteId =
-    match?.[1] && sites.some((s) => s.id === match[1]) ? match[1] : undefined;
+  const activeSiteId = match?.[1] && sites.some((site) => site.id === match[1])
+    ? match[1]
+    : sites[0]?.id;
 
-  const overviewNav: NavGroup = {
-    label: "Overview",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/sites", label: "Sites", icon: Globe, exact: true },
-    ],
-  };
-
-  const workspaceNav: NavGroup | null = activeSiteId
-    ? {
-        label: "Workspace",
-        items: [
-          { href: `/sites/${activeSiteId}`, label: "Overview", icon: LayoutDashboard, exact: true },
-          { href: `/sites/${activeSiteId}/keywords`, label: "Keywords", icon: Search },
-          { href: `/sites/${activeSiteId}/saved-keywords`, label: "Saved Keywords", icon: Bookmark },
-          { href: `/sites/${activeSiteId}/pages`, label: "Pages", icon: FileText },
-          { href: `/sites/${activeSiteId}/crawl`, label: "Crawl / Audit", icon: Bug },
-          { href: `/sites/${activeSiteId}/vitals`, label: "Vitals", icon: Gauge },
-          { href: `/sites/${activeSiteId}/opportunities`, label: "Opportunities", icon: Lightbulb },
-          { href: `/sites/${activeSiteId}/alerts`, label: "Alerts", icon: Bell },
-        ],
-      }
-    : null;
-
-  const researchNav: NavGroup | null = activeSiteId
-    ? {
-        label: "Research",
-        items: [
-          { href: `/sites/${activeSiteId}/keyword-research`, label: "Keyword Research", icon: SearchCheck },
-          { href: `/sites/${activeSiteId}/domain-overview`, label: "Domain Overview", icon: Globe },
-          { href: `/sites/${activeSiteId}/backlinks`, label: "Backlinks", icon: LinkIcon },
-        ],
-      }
-    : null;
-
-  const connectNav: NavGroup | null = activeSiteId
-    ? {
-        label: "Connect",
-        items: [
-          { href: `/sites/${activeSiteId}/mcp`, label: "AI & MCP", icon: Bot },
-          { href: `/sites/${activeSiteId}/settings`, label: "Settings", icon: Settings },
-        ],
-      }
-    : null;
-
-  const groups = [overviewNav, workspaceNav, researchNav, connectNav].filter(
-    (g): g is NavGroup => g !== null
+  const dashboardArea = RELIVA_PRIMARY_AREAS.find((area) => area.key === "dashboard")!;
+  const connectionArea = RELIVA_PRIMARY_AREAS.find((area) => area.key === "connections")!;
+  const workspaceAreas = RELIVA_PRIMARY_AREAS.filter(
+    (area) => area.key !== "dashboard" && area.key !== "connections"
   );
 
+  const groups: NavGroup[] = [
+    {
+      items: [
+        {
+          href: areaHref(dashboardArea, activeSiteId) ?? "/dashboard",
+          label: t("dashboard"),
+          icon: areaIcons.dashboard,
+          exact: true,
+        },
+        {href: "/sites", label: t("websites"), icon: Globe2, exact: true},
+      ],
+    },
+  ];
+
+  const workspaceItems = workspaceAreas.flatMap((area) => {
+    const href = areaHref(area, activeSiteId);
+    if (!href) return [];
+    return [{href, label: t(area.key), icon: areaIcons[area.key]}];
+  });
+
+  if (workspaceItems.length > 0) {
+    groups.push({label: t("workspaces"), items: workspaceItems});
+  }
+
+  const connectionHref = areaHref(connectionArea, activeSiteId);
+  if (connectionHref) {
+    groups.push({
+      label: t("system"),
+      items: [{href: connectionHref, label: t("connections"), icon: areaIcons.connections}],
+    });
+  }
+
   return (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-2 text-sm">
-      {groups.map((group) => (
-        <div key={group.label}>
-          {!collapsed && (
-            <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+    <nav className="flex-1 space-y-5 overflow-y-auto px-2.5 py-2 text-sm">
+      {groups.map((group, index) => (
+        <div key={group.label ?? `primary-${index}`}>
+          {!collapsed && group.label ? (
+            <p className="mb-2 px-2.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               {group.label}
             </p>
-          )}
-          <div className="space-y-0.5">
+          ) : null}
+          <div className="space-y-1">
             {group.items.map((item) => (
               <SidebarLink
                 key={item.href}
                 item={item}
                 pathname={pathname}
                 collapsed={collapsed}
+                onNavigate={onNavigate}
               />
             ))}
           </div>
         </div>
       ))}
-
     </nav>
   );
 }
@@ -123,46 +127,39 @@ function SidebarLink({
   item,
   pathname,
   collapsed,
+  onNavigate,
 }: {
   item: NavItem;
   pathname: string;
   collapsed: boolean;
+  onNavigate?: () => void;
 }) {
   const active = item.exact
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
-
   const Icon = item.icon;
-
-  if (collapsed) {
-    return (
-      <Link
-        href={item.href}
-        title={item.label}
-        className={cn(
-          "flex size-10 items-center justify-center rounded-xl transition",
-          active
-            ? "bg-primary/15 text-primary"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-      >
-        <Icon className="size-4" />
-      </Link>
-    );
-  }
 
   return (
     <Link
       href={item.href}
+      title={collapsed ? item.label : undefined}
+      onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-200",
+        "group flex h-10 items-center rounded-lg text-[13px] font-medium transition-colors",
+        collapsed ? "justify-center px-0" : "gap-3 px-3",
         active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-sidebar-foreground/75 hover:bg-muted hover:text-foreground"
+          ? "bg-[#293b50] text-white shadow-[inset_3px_0_0_#78baf0]"
+          : "text-slate-300 hover:bg-white/[0.055] hover:text-white"
       )}
     >
-      <Icon className="size-4 shrink-0" />
-      {item.label}
+      <Icon
+        className={cn(
+          "size-[17px] shrink-0",
+          active ? "text-[#b7ddf8]" : "text-slate-400 group-hover:text-slate-200"
+        )}
+        strokeWidth={1.75}
+      />
+      {!collapsed ? <span>{item.label}</span> : null}
     </Link>
   );
 }

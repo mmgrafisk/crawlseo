@@ -1,152 +1,376 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { redirect } from "next/navigation";
-import { DashboardMetrics } from "@/components/dashboard/metrics";
-import { TrafficChart } from "@/components/dashboard/traffic-chart";
-import { TopKeywords } from "@/components/dashboard/top-keywords";
-import { PageHeader } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { SyncButton } from "@/components/sites/sync-button";
-import { DataLagBadge } from "@/components/ui/data-lag-badge";
+import {redirect} from "next/navigation";
 import {
-  CrawlButton,
-  VitalsButton,
-} from "@/components/sites/action-buttons";
-import { CsvExportButton } from "@/components/ui/csv-export-button";
-import { getAllOpportunities } from "@/lib/seo-opportunities";
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  Globe2,
+  Lightbulb,
+  SearchCheck,
+} from "lucide-react";
+import {auth} from "@/lib/auth";
+import {db} from "@/lib/db";
+import {getAllOpportunities} from "@/lib/seo-opportunities";
+import {DashboardMetrics} from "@/components/dashboard/metrics";
+import {TrafficChart} from "@/components/dashboard/traffic-chart";
+import {TopKeywords} from "@/components/dashboard/top-keywords";
+import {SyncButton} from "@/components/sites/sync-button";
+import {CrawlButton, VitalsButton} from "@/components/sites/action-buttons";
+import {DataLagBadge} from "@/components/ui/data-lag-badge";
+import {cn} from "@/lib/utils";
 
 interface SitePageProps {
-  params: Promise<{ siteId: string }>;
+  params: Promise<{siteId: string}>;
 }
 
-export default async function SiteOverviewPage({ params }: SitePageProps) {
+export default async function SiteOverviewPage({params}: SitePageProps) {
   const session = await auth();
-  const { siteId } = await params;
+  const {siteId} = await params;
 
   const site = await db.site.findUnique({
-    where: { id: siteId },
+    where: {id: siteId},
     select: {
       userId: true,
       domain: true,
       gscProperty: true,
-      _count: { select: { keywords: true, pages: true } },
+      _count: {select: {keywords: true, pages: true}},
     },
   });
 
-  if (!site || site.userId !== session?.user?.id) {
-    redirect("/sites");
-  }
+  if (!site || site.userId !== session?.user?.id) redirect("/sites");
 
   const latestCrawl = await db.crawl.findFirst({
-    where: { siteId, status: "COMPLETED" },
-    orderBy: { finishedAt: "desc" },
-    select: { healthScore: true, issuesFound: true, pagesFound: true, finishedAt: true },
+    where: {siteId},
+    orderBy: {startedAt: "desc"},
+    select: {
+      id: true,
+      status: true,
+      healthScore: true,
+      issuesFound: true,
+      pagesFound: true,
+      finishedAt: true,
+      coveragePercent: true,
+      coverageReason: true,
+    },
   });
 
   const latestVital = await db.vitalsReport.findFirst({
-    where: { siteId },
-    orderBy: { date: "desc" },
-    select: { perfScore: true, lcp: true, url: true },
+    where: {siteId},
+    orderBy: {date: "desc"},
+    select: {perfScore: true, lcp: true, url: true},
   });
 
-  // Search Console anonymises the query dimension on low-traffic sites, so a
-  // synced site can have pages but no keywords. Either one means data arrived.
-  const hasData = site._count.keywords > 0 || site._count.pages > 0;
+  const topIssues = latestCrawl
+    ? await db.crawlIssue.findMany({
+        where: {crawlId: latestCrawl.id},
+        select: {id: true, type: true, severity: true, message: true, url: true},
+        take: 8,
+      })
+    : [];
 
+  const hasData = site._count.keywords > 0 || site._count.pages > 0;
   const opportunities = hasData ? await getAllOpportunities(siteId) : null;
+  const sortedIssues = [...topIssues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  const completedCrawl = latestCrawl?.status === "COMPLETED";
+  const crawlTone = completedCrawl ? "green" : latestCrawl ? "amber" : "blue";
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Site"
-        title={site.domain}
-        description={site.gscProperty || "Search Console property"}
-        actions={
-          <div className="flex flex-wrap items-start gap-2">
-            <DataLagBadge />
-            <SyncButton siteId={siteId} />
-            <CrawlButton siteId={siteId} />
-            <VitalsButton siteId={siteId} />
+    <div className="space-y-5">
+      <section className="flex flex-col gap-4 border-b border-border pb-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Globe2 className="size-3.5" />
+            <span>{site.gscProperty || "Search Console ikke forbundet"}</span>
+            {site.gscProperty ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e5f7ef] px-2 py-1 font-medium text-[#157a55]">
+                <span className="size-1.5 rounded-full bg-[#24a56f]" />
+                Forbundet
+              </span>
+            ) : null}
           </div>
-        }
-      />
+          <h1 className="truncate text-3xl font-semibold tracking-[-0.045em] text-foreground sm:text-[34px]">
+            {site.domain}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            SEO-overblik, findings, performance og næste handlinger.
+          </p>
+        </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DataLagBadge />
+          <SyncButton siteId={siteId} />
+          <CrawlButton siteId={siteId} />
+          <VitalsButton siteId={siteId} />
+        </div>
+      </section>
+
+      <nav className="flex gap-1 overflow-x-auto border-b border-border" aria-label="Site navigation">
         {[
-          ["Opportunities", "opportunities"],
-          ["Keywords", "keywords"],
-          ["Saved Keywords", "saved-keywords"],
-          ["Pages", "pages"],
-          ["Crawl", "crawl"],
-          ["Vitals", "vitals"],
-          ["Alerts", "alerts"],
-          ["Settings", "settings"],
-        ].map(([label, path]) => (
+          ["Overblik", ""],
+          ["Sider", "pages"],
+          ["SEO Audit", "crawl"],
+          ["Muligheder", "opportunities"],
+          ["Google & effekt", "keywords"],
+          ["Performance", "vitals"],
+          ["Monitorering", "alerts"],
+          ["Forbindelser", "settings"],
+        ].map(([label, path], index) => (
           <Link
-            key={path}
-            href={`/sites/${siteId}/${path}`}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-atom-caption font-medium text-muted-foreground shadow-[var(--shadow-1)] transition hover:border-primary hover:text-primary"
+            key={label}
+            href={path ? `/sites/${siteId}/${path}` : `/sites/${siteId}`}
+            className={cn(
+              "whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition",
+              index === 0
+                ? "border-[#172331] text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
           >
             {label}
           </Link>
         ))}
-      </div>
+      </nav>
 
-      {!hasData ? (
-        <EmptyState
-          icon="↻"
-          title="Waiting for GSC data"
-          description="Run a sync to pull keywords, pages, and traffic for the last 28 days."
+      {latestCrawl && latestCrawl.status !== "COMPLETED" ? (
+        <ScanCoverageNotice
+          status={latestCrawl.status}
+          coveragePercent={latestCrawl.coveragePercent}
+          coverageReason={latestCrawl.coverageReason}
+          pagesFound={latestCrawl.pagesFound}
         />
+      ) : null}
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={SearchCheck}
+          label="Site health"
+          value={completedCrawl && latestCrawl?.healthScore != null ? `${latestCrawl.healthScore}` : "—"}
+          suffix={completedCrawl && latestCrawl?.healthScore != null ? "/100" : undefined}
+          note={latestCrawl ? healthNote(latestCrawl.status, latestCrawl.pagesFound) : "Kør første scanning"}
+          tone={crawlTone}
+        />
+        <MetricCard
+          icon={AlertTriangle}
+          label="Findings"
+          value={latestCrawl?.issuesFound?.toLocaleString() ?? "—"}
+          note={latestCrawl ? crawlStatusLabel(latestCrawl.status, latestCrawl.coveragePercent) : "Ingen scan endnu"}
+          tone={latestCrawl?.status === "COMPLETED" ? "red" : latestCrawl ? "amber" : "blue"}
+        />
+        <MetricCard
+          icon={FileText}
+          label="Sider"
+          value={site._count.pages.toLocaleString()}
+          note="Search Console landing pages"
+          tone="blue"
+        />
+        <MetricCard
+          icon={Lightbulb}
+          label="Muligheder"
+          value={(opportunities?.feed.length ?? 0).toLocaleString()}
+          note="Prioriterbare signaler i perioden"
+          tone="amber"
+        />
+      </section>
+
+      {hasData ? (
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,.9fr)]">
+          <div className="reliva-panel overflow-hidden p-1">
+            <TrafficChart siteId={siteId} />
+          </div>
+
+          <div className="reliva-panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Vigtigste findings</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {latestCrawl?.status === "COMPLETED" ? "Seneste komplette scanning" : "Seneste scanning · dækning ikke komplet"}
+                </p>
+              </div>
+              <Link
+                href={`/sites/${siteId}/crawl`}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#347fbf] hover:text-[#286b9f]"
+              >
+                Se alle <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+
+            {sortedIssues.length ? (
+              <div className="divide-y divide-border">
+                {sortedIssues.map((issue) => (
+                  <div key={issue.id} className="grid grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 px-4 py-3 text-xs">
+                    <span className={cn("size-2 rounded-full", severityDot(issue.severity))} />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">{issue.message}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{issue.url}</p>
+                    </div>
+                    <span className={cn("rounded-md px-2 py-1 text-[10px] font-semibold", severityBadge(issue.severity))}>
+                      {severityLabel(issue.severity)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center">
+                {latestCrawl?.status === "COMPLETED" ? (
+                  <CheckCircle2 className="size-7 text-[#24a56f]" />
+                ) : (
+                  <SearchCheck className="size-7 text-[#388ee8]" />
+                )}
+                <p className="mt-3 text-sm font-semibold text-foreground">
+                  {latestCrawl?.status === "COMPLETED" ? "Ingen findings i den komplette scanning" : "Ingen findings at vise endnu"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {latestCrawl?.status === "COMPLETED"
+                    ? "Resultatet gælder kun den dokumenterede scan-dækning."
+                    : "Kør eller færdiggør en scanning for at opdatere evidensen."}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
       ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                Crawl health
-              </p>
-              <p className="mt-1 font-heading text-2xl font-semibold text-foreground">
-                {latestCrawl?.healthScore != null ? `${latestCrawl.healthScore}/100` : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {latestCrawl
-                  ? `${latestCrawl.pagesFound} pages · ${latestCrawl.issuesFound} issues`
-                  : "Run a crawl"}
-              </p>
-            </div>
-            <div className="panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                Opportunities
-              </p>
-              <p className="mt-1 font-heading text-2xl font-semibold text-signal">
-                {opportunities?.feed.length ?? 0}
-              </p>
-              <p className="text-xs text-muted-foreground">action items this period</p>
-            </div>
-            <div className="panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                Latest perf score
-              </p>
-              <p className="mt-1 font-heading text-2xl font-semibold text-foreground">
-                {latestVital?.perfScore ?? "—"}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {latestVital?.url || "Check vitals"}
-              </p>
-            </div>
-          </div>
-
-          <DashboardMetrics siteId={siteId} />
-          <TrafficChart siteId={siteId} />
-          <TopKeywords siteId={siteId} />
-
-          <div className="flex flex-wrap gap-2">
-            <CsvExportButton siteId={siteId} type="keywords" />
-            <CsvExportButton siteId={siteId} type="pages" />
-          </div>
-        </div>
+        <section className="reliva-panel flex min-h-64 flex-col items-center justify-center px-6 text-center">
+          <SearchCheck className="size-8 text-[#388ee8]" strokeWidth={1.6} />
+          <h2 className="mt-4 text-lg font-semibold text-foreground">Klar til første datasynk</h2>
+          <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">
+            Synkronisér Search Console og kør en scanning. Reliva viser aldrig manglende data som et grønt nul.
+          </p>
+        </section>
       )}
+
+      {hasData ? (
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,.8fr)]">
+          <div className="reliva-panel overflow-hidden p-1">
+            <DashboardMetrics siteId={siteId} />
+          </div>
+          <div className="reliva-panel overflow-hidden p-1">
+            <TopKeywords siteId={siteId} />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="reliva-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Performance snapshot</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {latestVital
+              ? `Seneste performance score ${latestVital.perfScore ?? "—"} · LCP ${latestVital.lcp ?? "—"}`
+              : "Ingen Core Web Vitals-måling endnu"}
+          </p>
+        </div>
+        <Link
+          href={`/sites/${siteId}/vitals`}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#347fbf]"
+        >
+          Åbn performance <ArrowRight className="size-3.5" />
+        </Link>
+      </section>
     </div>
   );
+}
+
+function ScanCoverageNotice({
+  status,
+  coveragePercent,
+  coverageReason,
+  pagesFound,
+}: {
+  status: string;
+  coveragePercent: number | null;
+  coverageReason: string | null;
+  pagesFound: number;
+}) {
+  return (
+    <section className="reliva-panel border-[#ead7aa] bg-[#fffaf0] px-4 py-3.5 sm:px-5">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 size-4.5 shrink-0 text-[#b97b13]" strokeWidth={1.9} />
+        <div>
+          <p className="text-sm font-semibold text-[#80570e]">Scanningen er ikke komplet</p>
+          <p className="mt-1 text-xs leading-5 text-[#76664b]">
+            Status: {crawlStatusLabel(status, coveragePercent)} · {pagesFound.toLocaleString("da-DK")} sider observeret.
+            {coverageReason ? ` ${coverageReason}` : " Resultater og findings er foreløbige, indtil dækningen er komplet."}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  suffix,
+  note,
+  tone,
+}: {
+  icon: typeof SearchCheck;
+  label: string;
+  value: string;
+  suffix?: string;
+  note: string;
+  tone: "green" | "red" | "blue" | "amber";
+}) {
+  const tones = {
+    green: "bg-[#e5f7ef] text-[#159264]",
+    red: "bg-[#ffeded] text-[#df4343]",
+    blue: "bg-[#edf5ff] text-[#3d88df]",
+    amber: "bg-[#fff5df] text-[#d28c16]",
+  };
+
+  return (
+    <div className="reliva-panel reliva-panel-hover p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="reliva-kpi text-3xl font-semibold text-foreground">{value}</span>
+            {suffix ? <span className="text-xs font-medium text-muted-foreground">{suffix}</span> : null}
+          </div>
+        </div>
+        <span className={cn("flex size-10 items-center justify-center rounded-full", tones[tone])}>
+          <Icon className="size-4.5" strokeWidth={1.8} />
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
+function severityRank(severity: string) {
+  return severity === "CRITICAL" ? 0 : severity === "WARNING" ? 1 : 2;
+}
+
+function severityDot(severity: string) {
+  return severity === "CRITICAL" ? "bg-[#e64949]" : severity === "WARNING" ? "bg-[#e8a223]" : "bg-[#388ee8]";
+}
+
+function severityBadge(severity: string) {
+  return severity === "CRITICAL"
+    ? "bg-[#ffeded] text-[#c93434]"
+    : severity === "WARNING"
+      ? "bg-[#fff4dd] text-[#a96b08]"
+      : "bg-[#eaf4ff] text-[#2f74b7]";
+}
+
+function severityLabel(severity: string) {
+  return severity === "CRITICAL" ? "Kritisk" : severity === "WARNING" ? "Advarsel" : "Info";
+}
+
+function healthNote(status: string, pagesFound: number) {
+  if (status === "COMPLETED") return `${pagesFound.toLocaleString("da-DK")} crawlede sider`;
+  if (status === "PARTIAL") return "Health score skjules ved delvis scan";
+  if (status === "RUNNING") return "Health score vises først efter komplet scan";
+  if (status === "FAILED") return "Seneste scanning fejlede";
+  if (status === "CANCELLED") return "Seneste scanning blev annulleret";
+  return "Scanning afventer";
+}
+
+function crawlStatusLabel(status: string, coveragePercent?: number | null) {
+  if (status === "COMPLETED") return "Komplet scanning";
+  if (status === "PARTIAL") return `Delvis scanning${coveragePercent != null ? ` · ${Math.round(coveragePercent)}% dækning` : ""}`;
+  if (status === "RUNNING") return `Scanning kører${coveragePercent != null ? ` · ${Math.round(coveragePercent)}%` : ""}`;
+  if (status === "FAILED") return "Scanning fejlede";
+  if (status === "CANCELLED") return "Scanning annulleret";
+  return "Scanning afventer";
 }

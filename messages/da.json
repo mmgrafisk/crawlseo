@@ -1,0 +1,49 @@
+{
+  "brand": {
+    "name": "Reliva",
+    "product": "Visibility"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "websites": "Websites",
+    "seoAudit": "SEO Audit",
+    "pagesContent": "Sider & indhold",
+    "tasks": "Opgaver & historik",
+    "opportunities": "Muligheder",
+    "googleImpact": "Google & effekt",
+    "performance": "Performance",
+    "shopify": "Shopify",
+    "international": "International",
+    "monitoring": "Monitorering",
+    "operations": "Drift",
+    "keywordResearch": "Keyword research",
+    "backlinks": "Backlinks",
+    "aiMcp": "AI & MCP",
+    "connections": "Forbindelser",
+    "settings": "Indstillinger",
+    "workspaces": "Arbejdsområder",
+    "seoWorkspace": "SEO workspace",
+    "research": "Research",
+    "system": "System"
+  },
+  "common": {
+    "searchPlaceholder": "Søg i websites, sider, findings eller opgaver…",
+    "newScan": "Ny scanning",
+    "connected": "Forbundet",
+    "signOut": "Log ud"
+  },
+  "login": {
+    "eyebrow": "SEO operations workspace",
+    "heroTitle": "Fra finding til verificeret forbedring.",
+    "heroDescription": "Reliva samler scanninger, Google-data, Shopify-evidens, opgaver og verifikation i én rolig arbejdsflade.",
+    "benefitShopify": "Read-only Shopify",
+    "benefitEvidence": "Findings med evidens",
+    "benefitTasks": "Opgaver med verifikation",
+    "benefitGoogle": "GSC & Core Web Vitals",
+    "employeeAccess": "Medarbejderadgang · Reliva Visibility",
+    "title": "Log ind på Reliva",
+    "description": "Sikker medarbejderadgang til SEO, opgaver, data og verifikation.",
+    "google": "Fortsæt med Google",
+    "inviteOnly": "Login er kun for inviterede medarbejdere. Eksterne integrationer bruger mindst mulige scopes, og Shopify forbliver read-only."
+  }
+}

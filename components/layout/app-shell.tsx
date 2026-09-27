@@ -1,243 +1,212 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {useState, useSyncExternalStore} from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { SidebarNav } from "@/components/layout/sidebar-nav";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { SiteSwitcher } from "@/components/sites/site-switcher";
+import {useTranslations} from "next-intl";
 import {
+  Bell,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  Menu,
+  Plus,
+  Search,
   X,
-  LogOut,
 } from "lucide-react";
+import {cn} from "@/lib/utils";
+import {RelivaMark} from "@/components/brand/reliva-mark";
+import {LocaleToggle} from "@/components/layout/locale-toggle";
+import {SidebarNav} from "@/components/layout/sidebar-nav";
+import {ThemeToggle} from "@/components/layout/theme-toggle";
+import {SiteSwitcher} from "@/components/sites/site-switcher";
 
 type AppShellProps = {
   email?: string | null;
   name?: string | null;
   image?: string | null;
   children: React.ReactNode;
-  sites: { id: string; domain: string }[];
+  sites: {id: string; domain: string}[];
 };
 
-export function AppShell({
-  email,
-  name,
-  image,
-  children,
-  sites,
-}: AppShellProps) {
+const SIDEBAR_EVENT = "reliva-sidebar-change";
+
+function getSidebarCollapsed() {
+  return localStorage.getItem("reliva-sidebar-collapsed") === "true";
+}
+
+function subscribeSidebar(onStoreChange: () => void) {
+  const handleChange = () => onStoreChange();
+  window.addEventListener("storage", handleChange);
+  window.addEventListener(SIDEBAR_EVENT, handleChange);
+  return () => {
+    window.removeEventListener("storage", handleChange);
+    window.removeEventListener(SIDEBAR_EVENT, handleChange);
+  };
+}
+
+export function AppShell({email, name, image, children, sites}: AppShellProps) {
+  const t = useTranslations("common");
   const displayName = name || email?.split("@")[0] || "User";
   const initial = displayName.charAt(0).toUpperCase();
-  const pathname = usePathname();
-
   const [imgError, setImgError] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeSidebar, getSidebarCollapsed, () => false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const showImage = image && !imgError;
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Close mobile drawer on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
-
-  // Load collapsed state from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("crawlseo-sidebar-collapsed");
-    if (saved === "true") setCollapsed(true);
-  }, []);
-
   function toggleCollapsed() {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("crawlseo-sidebar-collapsed", String(next));
+    localStorage.setItem("reliva-sidebar-collapsed", String(!collapsed));
+    window.dispatchEvent(new Event(SIDEBAR_EVENT));
+  }
+
+  function closeMobileNavigation() {
+    setMobileOpen(false);
   }
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
-      {/* Logo / brand */}
-      <div className={cn("flex items-center gap-2.5 px-4 py-5", collapsed && "justify-center px-2")}>
-        <Link
-          href="/dashboard"
-          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"
-        >
-          <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-            <path
-              d="M4 18 L12 5 L20 18"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinejoin="round"
-            />
-            <circle cx="12" cy="15.5" r="1.6" fill="currentColor" />
-          </svg>
+      <div className={cn("flex h-[74px] items-center px-5", collapsed && "justify-center px-2")}>
+        <Link href="/dashboard" aria-label="Reliva Visibility dashboard" onClick={closeMobileNavigation}>
+          <RelivaMark compact={collapsed} />
         </Link>
-        {!collapsed && (
-          <div>
-            <p className="text-[15px] font-semibold tracking-tight text-foreground">
-              CrawlSEO
-            </p>
-            <p className="text-[11px] text-muted-foreground">Search operations</p>
-          </div>
-        )}
       </div>
 
-      {/* Site switcher */}
-      {sites.length > 0 && !collapsed && (
-        <div className="px-3 pb-4">
-          <SiteSwitcher sites={sites} />
+      {sites.length > 0 && !collapsed ? (
+        <div className="px-3 pb-3">
+          <div className="rounded-xl border border-white/8 bg-white/[0.035] p-1.5">
+            <SiteSwitcher sites={sites} />
+          </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Navigation */}
-      <SidebarNav sites={sites} collapsed={collapsed} />
+      <SidebarNav sites={sites} collapsed={collapsed} onNavigate={closeMobileNavigation} />
 
-      {/* Bottom section */}
-      <div className="mt-auto space-y-3 px-3 pb-4 pt-4">
-        {/* Collapse toggle (desktop only) */}
+      <div className="mt-auto px-3 pb-4 pt-3">
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="hidden w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground md:flex"
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-4" />
-          ) : (
-            <>
-              <PanelLeftClose className="size-4" />
-              <span>Collapse</span>
-            </>
+          className={cn(
+            "mb-3 hidden w-full items-center rounded-lg px-3 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/[0.055] hover:text-white md:flex",
+            collapsed ? "justify-center" : "gap-2"
           )}
+        >
+          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          {!collapsed ? <span>Skjul menu</span> : null}
         </button>
 
-        {/* User card */}
-        {!collapsed && (
-          <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-            <div className="mb-3 flex items-center gap-2.5">
-              {showImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={image}
-                  alt={displayName}
-                  className="size-9 rounded-full object-cover"
-                  onError={() => setImgError(true)}
-                />
-              ) : (
-                <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-400 text-sm font-semibold text-primary-foreground">
-                  {initial}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {displayName}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {email}
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-3 flex items-center justify-between gap-2 px-0.5">
-              <span className="text-[11px] text-muted-foreground">Theme</span>
-              <ThemeToggle />
-            </div>
-
-            <a
-              href="/api/auth/signout"
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
-            >
-              <LogOut className="size-3.5" />
-              Logout
-            </a>
-          </div>
-        )}
-
-        {/* Collapsed: just avatar + theme */}
-        {collapsed && (
-          <div className="flex flex-col items-center gap-2">
-            <ThemeToggle />
+        <div className={cn("border-t border-white/8 pt-3", collapsed && "flex justify-center")}>
+          <Link
+            href="/settings"
+            onClick={closeMobileNavigation}
+            className={cn(
+              "flex items-center rounded-xl transition hover:bg-white/[0.055]",
+              collapsed ? "size-10 justify-center" : "gap-3 px-2 py-2"
+            )}
+          >
             {showImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={image}
                 alt={displayName}
-                className="size-8 rounded-full object-cover"
+                className="size-9 rounded-full object-cover ring-1 ring-white/10"
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-400 text-xs font-semibold text-primary-foreground">
+              <div className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
                 {initial}
               </div>
             )}
-          </div>
-        )}
+            {!collapsed ? (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{displayName}</p>
+                <p className="truncate text-[11px] text-slate-400">{email}</p>
+              </div>
+            ) : null}
+          </Link>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
+    <div className="reliva-shell flex min-h-screen">
       <aside
         className={cn(
-          "hidden h-screen sticky top-0 z-20 shrink-0 border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:block",
-          collapsed ? "w-16" : "w-[260px]"
+          "reliva-sidebar sticky top-0 z-30 hidden h-screen shrink-0 border-r border-white/5 transition-[width] duration-200 md:block",
+          collapsed ? "w-[72px]" : "w-[238px]"
         )}
       >
         {sidebarContent}
       </aside>
 
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setMobileOpen(false)}
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation overlay"
+          className="fixed inset-0 z-40 bg-slate-950/45 md:hidden"
+          onClick={closeMobileNavigation}
         />
-      )}
+      ) : null}
 
-      {/* Mobile drawer */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[280px] border-r border-sidebar-border bg-sidebar transition-transform duration-200 md:hidden",
+          "reliva-sidebar fixed inset-y-0 left-0 z-50 w-[280px] border-r border-white/5 transition-transform duration-200 md:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-end px-4 pt-4">
-          <button
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={closeMobileNavigation}
+          className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-white"
+        >
+          <X className="size-4.5" />
+        </button>
         {sidebarContent}
       </aside>
 
-      {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b border-border bg-sidebar px-4 py-3 md:hidden">
+      <div className="min-w-0 flex-1">
+        <header className="reliva-topbar sticky top-0 z-20 flex h-[64px] items-center gap-3 px-4 sm:px-6 lg:px-7">
           <button
             type="button"
+            aria-label="Open navigation"
             onClick={() => setMobileOpen(true)}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-sm md:hidden"
           >
-            <Menu className="size-5" />
+            <Menu className="size-4.5" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <span className="text-xs font-bold">C</span>
-            </div>
-            <span className="font-semibold">CrawlSEO</span>
+
+          <div className="relative hidden w-full max-w-[540px] sm:block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              aria-label="Search Reliva"
+              placeholder={t("searchPlaceholder")}
+              className="h-9 w-full rounded-lg border border-transparent bg-[#f0f3f6] pl-9 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#cdd9e5] focus:bg-white focus:ring-2 focus:ring-[#3aa9e8]/15"
+            />
           </div>
-          <ThemeToggle />
+
+          <div className="ml-auto flex items-center gap-2">
+            <LocaleToggle />
+            <div className="hidden lg:block">
+              <ThemeToggle />
+            </div>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <Bell className="size-4.5" strokeWidth={1.8} />
+              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-danger ring-2 ring-white" />
+            </button>
+            <Link
+              href={sites[0] ? `/sites/${sites[0].id}/crawl` : "/sites"}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#20a56f] px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#198e60]"
+            >
+              <Plus className="size-4" />
+              <span className="hidden sm:inline">{t("newScan")}</span>
+            </Link>
+          </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-[1480px] px-4 py-5 sm:px-6 lg:px-7 lg:py-7">
           {children}
         </main>
       </div>

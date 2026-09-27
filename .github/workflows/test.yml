@@ -7,8 +7,11 @@ on:
 
 jobs:
   test:
-    name: Typecheck and test
+    name: Typecheck, test and build
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/reliva_ci
+      SKIP_ENV_VALIDATION: "1"
 
     steps:
       - name: Check out repository
@@ -27,13 +30,12 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # Lint only files changed in this PR / push, not the whole repo.
-      # Pre-existing lint errors in untouched files are ignored.
-      # If a PR touches an already-dirty file, lint WILL fail — that's
-      # intentional: you touched it, you own its lint errors now.
       - name: Lint changed files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -52,3 +54,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Production build
+        run: npm run build
