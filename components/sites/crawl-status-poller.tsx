@@ -46,9 +46,14 @@ export function CrawlStatusPoller({siteId, crawlId}: CrawlStatusPollerProps) {
   }, [siteId, crawlId, router]);
 
   useEffect(() => {
-    void poll();
+    // Timers are the external subscription here; keeping state updates inside
+    // their callbacks avoids an effect-driven synchronous render cascade.
+    const initial = window.setTimeout(() => void poll(), 250);
     const interval = window.setInterval(() => void poll(), 3000);
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
   }, [poll]);
 
   if (status && terminalStates.has(status.status)) return null;
