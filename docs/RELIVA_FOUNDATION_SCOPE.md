@@ -26,6 +26,20 @@ Reliva Visibility is being rebuilt as a standalone application using the forked 
 - Findings → Tasks → Implemented pending verification → later verification scan
 - Partial crawl state and coverage are first-class data
 
+## Authentication and external connections
+
+Employee authentication and third-party data authorization are separate security boundaries.
+
+- Employee Google login requests only `openid email profile`.
+- Reliva is invite-only; a login identity alone does not create organization membership.
+- Google Search Console is authorized explicitly from Connections and requests only `webmasters.readonly`.
+- Search Console OAuth state is verified before token exchange.
+- New Search Console token writes are encrypted at rest; legacy plain-token reads exist only as a migration compatibility path.
+- Changing site connections requires Owner/Admin permission.
+- Shopify stays read-only and must never inherit employee-login authorization as an implicit permission to mutate external systems.
+
+The current CrawlSEO-compatible `User.googleTokens` field remains transitional. Before multi-user production rollout, integration credentials should move to a site/organization-scoped integration record so scheduled syncs do not depend on whichever employee authorized Google.
+
 ## Design foundation
 
 Design quality is a release gate. The visual system is light-first for the main workspace with a dark navy navigation rail, restrained cards, dense operational tables, clear hierarchy, explicit status semantics and desktop-productivity-first responsive behavior.
