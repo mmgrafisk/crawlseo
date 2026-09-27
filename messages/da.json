@@ -1,0 +1,31 @@
+{
+  "brand": {
+    "name": "Reliva",
+    "product": "Visibility"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "websites": "Websites",
+    "seoAudit": "SEO Audit",
+    "tasks": "Opgaver",
+    "opportunities": "Muligheder",
+    "googleImpact": "Google & effekt",
+    "shopify": "Shopify",
+    "international": "International",
+    "monitoring": "Monitorering",
+    "operations": "Drift",
+    "connections": "Forbindelser",
+    "settings": "Indstillinger"
+  },
+  "common": {
+    "searchPlaceholder": "Søg i websites, sider, findings eller opgaver…",
+    "newScan": "Ny scanning",
+    "connected": "Forbundet",
+    "signOut": "Log ud"
+  },
+  "login": {
+    "title": "Log ind på Reliva",
+    "description": "Medarbejderadgang til SEO, opgaver, data og verifikation.",
+    "google": "Fortsæt med Google"
+  }
+}
