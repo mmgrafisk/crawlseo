@@ -18,6 +18,15 @@ export async function getAccessibleOrganizationIds(userId: string) {
   return memberships.map((membership) => membership.organizationId);
 }
 
+export async function getOrganizationAccess(userId: string, organizationId: string) {
+  const membership = await db.membership.findUnique({
+    where: {organizationId_userId: {organizationId, userId}},
+    select: {role: true, status: true},
+  });
+  if (membership?.status !== "ACTIVE") return null;
+  return {organizationId, role: membership.role as RelivaRole};
+}
+
 export async function getSiteAccess(userId: string, siteId: string) {
   const site = await db.site.findUnique({
     where: {id: siteId},
