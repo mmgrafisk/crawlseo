@@ -1,5 +1,6 @@
 import {auth} from "@/lib/auth";
 import {db} from "@/lib/db";
+import {canWriteWorkspace, getSiteAccess} from "@/lib/permissions";
 import {z} from "zod";
 
 const payloadSchema = z.object({
@@ -20,33 +21,19 @@ export async function POST(
   }
 
   const {siteId} = await params;
-  const site = await db.site.findUnique({
-    where: {id: siteId},
-    select: {id: true, domain: true, userId: true, organizationId: true},
-  });
-  if (!site || site.userId !== userId) {
-    return Response.json({error: "Not found"}, {status: 404});
-  }
-  if (!site.organizationId) {
+  const access = await getSiteAccess(userId, siteId);
+  if (!access) return Response.json({error: "Not found"}, {status: 404});
+  if (!access.organizationId) {
     return Response.json(
       {error: "Organization migration required before tasks can be created", code: "ORG_MIGRATION_REQUIRED"},
       {status: 409}
     );
   }
-
-  const membership = await db.membership.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId: site.organizationId,
-        userId,
-      },
-    },
-    select: {status: true, role: true},
-  });
-  if (!membership || membership.status !== "ACTIVE" || membership.role === "VIEWER") {
+  if (!canWriteWorkspace(access.role)) {
     return Response.json({error: "Insufficient permission"}, {status: 403});
   }
 
+  const organizationId = access.organizationId;
   const findings = await db.crawlIssue.findMany({
     where: {
       id: {in: parsed.data.findingIds},
@@ -65,7 +52,7 @@ export async function POST(
 
   const existing = await db.task.findMany({
     where: {
-      organizationId: site.organizationId,
+      organizationId,
       findingId: {in: findings.map((finding) => finding.id)},
       status: {not: "IGNORED"},
     },
@@ -80,7 +67,7 @@ export async function POST(
         const details = finding.details as {howToFix?: string} | null;
         const task = await tx.task.create({
           data: {
-            organizationId: site.organizationId!,
+            organizationId,
             siteId,
             findingId: finding.id,
             title: finding.message,
@@ -94,7 +81,7 @@ export async function POST(
 
         await tx.auditLog.create({
           data: {
-            organizationId: site.organizationId!,
+            organizationId,
             actorUserId: userId,
             action: "task.created_from_finding",
             entityType: "Task",
