@@ -36,7 +36,13 @@ export default async function DashboardPage() {
         db.crawl.findFirst({
           where: {siteId: site.id},
           orderBy: {startedAt: "desc"},
-          select: {healthScore: true, issuesFound: true, status: true, finishedAt: true},
+          select: {
+            healthScore: true,
+            issuesFound: true,
+            status: true,
+            finishedAt: true,
+            coveragePercent: true,
+          },
         }),
       ]);
       return {site, metrics, latestCrawl};
@@ -46,11 +52,15 @@ export default async function DashboardPage() {
   const connectedCount = sites.filter((site) => site.gscProperty).length;
   const totalIssues = siteCards.reduce((sum, item) => sum + (item.latestCrawl?.issuesFound ?? 0), 0);
   const averageHealthValues = siteCards
+    .filter((item) => item.latestCrawl?.status === "COMPLETED")
     .map((item) => item.latestCrawl?.healthScore)
     .filter((value): value is number => typeof value === "number");
   const averageHealth = averageHealthValues.length
     ? Math.round(averageHealthValues.reduce((sum, value) => sum + value, 0) / averageHealthValues.length)
     : null;
+  const incompleteScanCount = siteCards.filter(
+    (item) => item.latestCrawl && item.latestCrawl.status !== "COMPLETED"
+  ).length;
 
   return (
     <div className="space-y-5">
@@ -69,6 +79,17 @@ export default async function DashboardPage() {
           <AddSiteModal triggerLabel="Tilføj website" />
         </div>
       </section>
+
+      {incompleteScanCount > 0 ? (
+        <section className="reliva-panel border-[#ead7aa] bg-[#fffaf0] px-4 py-3.5 sm:px-5">
+          <p className="text-sm font-semibold text-[#80570e]">
+            {incompleteScanCount} {incompleteScanCount === 1 ? "website har" : "websites har"} en seneste scanning uden komplet dækning
+          </p>
+          <p className="mt-1 text-xs leading-5 text-[#76664b]">
+            Health score fra delvise, kørende, fejlede eller annullerede scans indgår ikke i gennemsnittet. Findings kan være foreløbige.
+          </p>
+        </section>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
@@ -89,14 +110,14 @@ export default async function DashboardPage() {
           icon={SearchCheck}
           label="Gns. site health"
           value={averageHealth == null ? "—" : `${averageHealth}`}
-          note={averageHealth == null ? "Kræver mindst én scanning" : "Baseret på seneste scanning pr. site"}
-          tone="green"
+          note={averageHealth == null ? "Kræver mindst én komplet scanning" : "Kun komplette scans indgår"}
+          tone={averageHealth == null ? "blue" : "green"}
         />
         <SummaryCard
           icon={ShieldAlert}
-          label="Aktive findings"
+          label="Observerede findings"
           value={totalIssues.toLocaleString()}
-          note="Seneste scanning på tværs af sites"
+          note={incompleteScanCount > 0 ? "Kan indeholde foreløbige findings" : "Seneste scanning på tværs af sites"}
           tone="red"
         />
       </section>
@@ -139,29 +160,34 @@ export default async function DashboardPage() {
             </div>
 
             <div className="divide-y divide-border">
-              {siteCards.map(({site, metrics, latestCrawl}) => (
-                <Link
-                  key={site.id}
-                  href={`/sites/${site.id}`}
-                  className="grid gap-4 px-4 py-4 transition hover:bg-[#f8fafc] sm:px-5 lg:grid-cols-[minmax(180px,1.35fr)_repeat(4,minmax(90px,.65fr))_24px] lg:items-center"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("size-2 rounded-full", site.gscProperty ? "bg-[#24a56f]" : "bg-[#a9b3bf]")} />
-                      <p className="truncate text-sm font-semibold text-foreground">{site.domain}</p>
+              {siteCards.map(({site, metrics, latestCrawl}) => {
+                const complete = latestCrawl?.status === "COMPLETED";
+                return (
+                  <Link
+                    key={site.id}
+                    href={`/sites/${site.id}`}
+                    className="grid gap-4 px-4 py-4 transition hover:bg-[#f8fafc] sm:px-5 lg:grid-cols-[minmax(180px,1.35fr)_repeat(4,minmax(90px,.65fr))_24px] lg:items-center"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("size-2 rounded-full", site.gscProperty ? "bg-[#24a56f]" : "bg-[#a9b3bf]")} />
+                        <p className="truncate text-sm font-semibold text-foreground">{site.domain}</p>
+                      </div>
+                      <p className="mt-1 truncate pl-4 text-[11px] text-muted-foreground">
+                        {latestCrawl && !complete
+                          ? scanStatusLabel(latestCrawl.status, latestCrawl.coveragePercent)
+                          : site.gscProperty || "Search Console ikke forbundet"}
+                      </p>
                     </div>
-                    <p className="mt-1 truncate pl-4 text-[11px] text-muted-foreground">
-                      {site.gscProperty || "Search Console ikke forbundet"}
-                    </p>
-                  </div>
 
-                  <RowMetric label="Health" value={latestCrawl?.healthScore == null ? "—" : `${latestCrawl.healthScore}/100`} />
-                  <RowMetric label="Findings" value={latestCrawl?.issuesFound?.toLocaleString() ?? "—"} />
-                  <RowMetric label="Clicks" value={metrics ? formatCompact(metrics.current.clicks) : "—"} delta={metrics ? formatDeltaPercent(metrics.deltas.clicks) : undefined} positive={metrics ? metrics.deltas.clicks >= 0 : undefined} />
-                  <RowMetric label="Impressions" value={metrics ? formatCompact(metrics.current.impressions) : "—"} delta={metrics ? formatDeltaPercent(metrics.deltas.impressions) : undefined} positive={metrics ? metrics.deltas.impressions >= 0 : undefined} />
-                  <ArrowRight className="hidden size-4 text-muted-foreground lg:block" />
-                </Link>
-              ))}
+                    <RowMetric label="Health" value={complete && latestCrawl?.healthScore != null ? `${latestCrawl.healthScore}/100` : "—"} />
+                    <RowMetric label="Findings" value={latestCrawl?.issuesFound?.toLocaleString() ?? "—"} />
+                    <RowMetric label="Clicks" value={metrics ? formatCompact(metrics.current.clicks) : "—"} delta={metrics ? formatDeltaPercent(metrics.deltas.clicks) : undefined} positive={metrics ? metrics.deltas.clicks >= 0 : undefined} />
+                    <RowMetric label="Impressions" value={metrics ? formatCompact(metrics.current.impressions) : "—"} delta={metrics ? formatDeltaPercent(metrics.deltas.impressions) : undefined} positive={metrics ? metrics.deltas.impressions >= 0 : undefined} />
+                    <ArrowRight className="hidden size-4 text-muted-foreground lg:block" />
+                  </Link>
+                );
+              })}
             </div>
           </section>
         </>
@@ -217,4 +243,12 @@ function RowMetric({label, value, delta, positive}: {label: string; value: strin
       </div>
     </div>
   );
+}
+
+function scanStatusLabel(status: string, coveragePercent: number | null) {
+  if (status === "PARTIAL") return `Delvis scanning${coveragePercent != null ? ` · ${Math.round(coveragePercent)}% dækning` : ""}`;
+  if (status === "RUNNING") return `Scanning kører${coveragePercent != null ? ` · ${Math.round(coveragePercent)}%` : ""}`;
+  if (status === "FAILED") return "Seneste scanning fejlede";
+  if (status === "CANCELLED") return "Seneste scanning blev annulleret";
+  return "Scanning afventer";
 }
