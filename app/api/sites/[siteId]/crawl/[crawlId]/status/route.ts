@@ -1,5 +1,6 @@
 import {auth} from "@/lib/auth";
 import {db} from "@/lib/db";
+import {getSiteAccess} from "@/lib/permissions";
 
 export async function GET(
   _req: Request,
@@ -7,18 +8,12 @@ export async function GET(
 ) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return Response.json({error: "Unauthorized"}, {status: 401});
-    }
+    const userId = session?.user?.id;
+    if (!userId) return Response.json({error: "Unauthorized"}, {status: 401});
 
     const {siteId, crawlId} = await params;
-    const site = await db.site.findUnique({
-      where: {id: siteId},
-      select: {userId: true},
-    });
-    if (!site || site.userId !== session.user.id) {
-      return Response.json({error: "Not found"}, {status: 404});
-    }
+    const access = await getSiteAccess(userId, siteId);
+    if (!access) return Response.json({error: "Not found"}, {status: 404});
 
     const crawl = await db.crawl.findUnique({
       where: {id: crawlId},
