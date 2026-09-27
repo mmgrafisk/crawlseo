@@ -5,17 +5,15 @@ import {usePathname} from "next/navigation";
 import {useTranslations} from "next-intl";
 import {
   Activity,
-  Bot,
   ChartNoAxesCombined,
-  CircleGauge,
   ClipboardCheck,
-  FileSearch,
   Globe2,
+  Languages,
   LayoutDashboard,
-  Lightbulb,
-  Link2,
+  PlugZap,
   SearchCheck,
-  Settings,
+  ShoppingBag,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import {cn} from "@/lib/utils";
@@ -44,7 +42,9 @@ export function SidebarNav({
   const t = useTranslations("nav");
   const pathname = usePathname();
   const match = pathname.match(/\/sites\/([^/]+)/);
-  const activeSiteId = match?.[1] && sites.some((site) => site.id === match[1]) ? match[1] : sites[0]?.id;
+  const activeSiteId = match?.[1] && sites.some((site) => site.id === match[1])
+    ? match[1]
+    : sites[0]?.id;
 
   const groups: NavGroup[] = [
     {
@@ -57,33 +57,24 @@ export function SidebarNav({
   ];
 
   if (activeSiteId) {
-    groups.push(
-      {
-        label: t("seoWorkspace"),
-        items: [
-          {href: `/sites/${activeSiteId}/crawl`, label: t("seoAudit"), icon: SearchCheck},
-          {href: `/sites/${activeSiteId}/pages`, label: t("pagesContent"), icon: FileSearch},
-          {href: `/sites/${activeSiteId}/opportunities`, label: t("opportunities"), icon: Lightbulb},
-          {href: `/sites/${activeSiteId}/keywords`, label: t("googleImpact"), icon: ChartNoAxesCombined},
-          {href: `/sites/${activeSiteId}/vitals`, label: t("performance"), icon: CircleGauge},
-          {href: `/sites/${activeSiteId}/alerts`, label: t("monitoring"), icon: Activity},
-        ],
-      },
-      {
-        label: t("research"),
-        items: [
-          {href: `/sites/${activeSiteId}/keyword-research`, label: t("keywordResearch"), icon: SearchCheck},
-          {href: `/sites/${activeSiteId}/backlinks`, label: t("backlinks"), icon: Link2},
-        ],
-      },
-      {
-        label: t("system"),
-        items: [
-          {href: `/sites/${activeSiteId}/mcp`, label: t("aiMcp"), icon: Bot},
-          {href: `/sites/${activeSiteId}/settings`, label: t("connections"), icon: Settings},
-        ],
-      }
-    );
+    groups.push({
+      label: t("workspaces"),
+      items: [
+        {href: `/sites/${activeSiteId}/crawl`, label: t("seoAudit"), icon: SearchCheck},
+        {href: `/sites/${activeSiteId}/shopify`, label: t("shopify"), icon: ShoppingBag},
+        {href: `/sites/${activeSiteId}/international`, label: t("international"), icon: Languages},
+        {href: `/sites/${activeSiteId}/keywords`, label: t("googleImpact"), icon: ChartNoAxesCombined},
+        {href: `/sites/${activeSiteId}/alerts`, label: t("monitoring"), icon: Activity},
+        {href: `/sites/${activeSiteId}/operations`, label: t("operations"), icon: Wrench},
+      ],
+    });
+
+    groups.push({
+      label: t("system"),
+      items: [
+        {href: `/sites/${activeSiteId}/settings`, label: t("connections"), icon: PlugZap},
+      ],
+    });
   }
 
   return (
@@ -142,7 +133,10 @@ function SidebarLink({
       )}
     >
       <Icon
-        className={cn("size-[17px] shrink-0", active ? "text-[#b7ddf8]" : "text-slate-400 group-hover:text-slate-200")}
+        className={cn(
+          "size-[17px] shrink-0",
+          active ? "text-[#b7ddf8]" : "text-slate-400 group-hover:text-slate-200"
+        )}
         strokeWidth={1.75}
       />
       {!collapsed ? <span>{item.label}</span> : null}
