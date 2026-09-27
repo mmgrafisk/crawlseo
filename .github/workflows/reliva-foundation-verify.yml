@@ -4,14 +4,23 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     name: Foundation verification
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/reliva_ci
+      SKIP_ENV_VALIDATION: "1"
 
     steps:
-      - name: Check out repository
+      - name: Check out feature branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -21,6 +30,18 @@ jobs:
 
       - name: Refresh dependency lock
         run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit refreshed dependency lock
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already current"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: refresh dependency lock"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
 
       - name: Install dependencies
         run: npm ci
@@ -46,10 +67,5 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Upload refreshed lockfile
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: reliva-package-lock
-          path: package-lock.json
-          if-no-files-found: error
+      - name: Production build
+        run: npm run build
