@@ -1,6 +1,7 @@
-import { db } from "@/lib/db";
-import { fetchSearchAnalytics, fetchPageAnalytics, gscDate } from "@/lib/google";
-import { getDateRange, getDataLagDate } from "@/lib/date-utils";
+import {db} from "@/lib/db";
+import {fetchSearchAnalytics, fetchPageAnalytics, gscDate} from "@/lib/google";
+import {getDateRange, getDataLagDate} from "@/lib/date-utils";
+import {getAccessibleOrganizationIds, getSiteAccess} from "@/lib/permissions";
 
 interface SyncResult {
   success: boolean;
@@ -11,31 +12,21 @@ interface SyncResult {
   error?: string;
 }
 
-/**
- * Syncs GSC data for a specific site
- * Fetches last 28 days of keywords and pages data
- */
+/** Syncs GSC data for a site the current user can access. */
 export async function syncGSCDataForSite(
   userId: string,
   siteId: string,
   daysBack: number = 28
 ): Promise<SyncResult> {
   try {
-    // Verify site belongs to user
+    const access = await getSiteAccess(userId, siteId);
+    if (!access) throw new Error("Site not found or unauthorized");
+
     const site = await db.site.findUnique({
-      where: { id: siteId },
-      select: { userId: true, gscProperty: true },
+      where: {id: siteId},
+      select: {gscProperty: true},
     });
-
-    if (!site) {
-      throw new Error("Site not found");
-    }
-
-    if (site.userId !== userId) {
-      throw new Error("Unauthorized: Site does not belong to user");
-    }
-
-    if (!site.gscProperty) {
+    if (!site?.gscProperty) {
       throw new Error("Site does not have GSC property connected");
     }
 
@@ -56,9 +47,8 @@ export async function syncGSCDataForSite(
 }
 
 /**
- * Fetches and upserts GSC keywords and pages for a site whose ownership and
- * GSC property the caller has already checked. Throws on fetch errors
- * (including ReauthRequiredError) so callers can map them to a response.
+ * Fetches and upserts GSC keywords and pages for a site whose access and GSC
+ * property the caller has already checked.
  */
 export async function runGSCSync(
   userId: string,
@@ -66,15 +56,12 @@ export async function runGSCSync(
   gscProperty: string,
   daysBack: number = 28
 ): Promise<SyncResult> {
-  // Get date range — end at the data lag boundary (3 days ago) because
-  // Google's most recent 2-3 days are always incomplete.
-  const { start } = getDateRange(daysBack);
+  const {start} = getDateRange(daysBack);
   const end = getDataLagDate();
 
   console.log(`[GSC Sync] Starting sync for site ${siteId}`);
   console.log(`[GSC Sync] Date range: ${start} to ${end}`);
 
-  // Fetch keywords and pages in parallel
   const [keywords, pages] = await Promise.all([
     fetchSearchAnalytics(
       userId,
@@ -90,12 +77,10 @@ export async function runGSCSync(
     `[GSC Sync] Fetched ${keywords.length} keyword records and ${pages.length} page records`
   );
 
-  // Insert/update keywords with upsert
   let keywordsInserted = 0;
   for (const keyword of keywords) {
     try {
       const date = gscDate(keyword.date);
-
       await db.keyword.upsert({
         where: {
           siteId_query_date: {
@@ -126,21 +111,17 @@ export async function runGSCSync(
           country: keyword.country,
         },
       });
-
       keywordsInserted++;
     } catch (error) {
       console.warn(`[GSC Sync] Failed to upsert keyword: ${keyword.query}`, error);
     }
   }
 
-  // Insert/update pages
   let pagesInserted = 0;
   for (const page of pages) {
     if (!page.page) continue;
-
     try {
       const date = gscDate(page.date);
-
       await db.page.upsert({
         where: {
           siteId_url_date: {
@@ -165,7 +146,6 @@ export async function runGSCSync(
           position: page.position,
         },
       });
-
       pagesInserted++;
     } catch (error) {
       console.warn(`[GSC Sync] Failed to upsert page: ${page.page}`, error);
@@ -185,9 +165,7 @@ export async function runGSCSync(
   };
 }
 
-/**
- * Syncs GSC data for all sites of a user
- */
+/** Syncs all sites accessible to a user, including active organizations. */
 export async function syncAllUserSites(userId: string): Promise<
   Array<{
     siteId: string;
@@ -195,21 +173,22 @@ export async function syncAllUserSites(userId: string): Promise<
     result: SyncResult;
   }>
 > {
+  const organizationIds = await getAccessibleOrganizationIds(userId);
   const sites = await db.site.findMany({
-    where: { userId },
-    select: { id: true, domain: true },
+    where: {
+      OR: [
+        {userId},
+        ...(organizationIds.length ? [{organizationId: {in: organizationIds}}] : []),
+      ],
+    },
+    select: {id: true, domain: true},
+    distinct: ["id"],
   });
 
   const results = [];
-
   for (const site of sites) {
     const result = await syncGSCDataForSite(userId, site.id);
-    results.push({
-      siteId: site.id,
-      domain: site.domain,
-      result,
-    });
+    results.push({siteId: site.id, domain: site.domain, result});
   }
-
   return results;
 }
