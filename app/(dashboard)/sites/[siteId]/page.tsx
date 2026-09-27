@@ -50,6 +50,8 @@ export default async function SiteOverviewPage({params}: SitePageProps) {
       issuesFound: true,
       pagesFound: true,
       finishedAt: true,
+      coveragePercent: true,
+      coverageReason: true,
     },
   });
 
@@ -70,6 +72,8 @@ export default async function SiteOverviewPage({params}: SitePageProps) {
   const hasData = site._count.keywords > 0 || site._count.pages > 0;
   const opportunities = hasData ? await getAllOpportunities(siteId) : null;
   const sortedIssues = [...topIssues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  const completedCrawl = latestCrawl?.status === "COMPLETED";
+  const crawlTone = completedCrawl ? "green" : latestCrawl ? "amber" : "blue";
 
   return (
     <div className="space-y-5">
@@ -127,21 +131,30 @@ export default async function SiteOverviewPage({params}: SitePageProps) {
         ))}
       </nav>
 
+      {latestCrawl && latestCrawl.status !== "COMPLETED" ? (
+        <ScanCoverageNotice
+          status={latestCrawl.status}
+          coveragePercent={latestCrawl.coveragePercent}
+          coverageReason={latestCrawl.coverageReason}
+          pagesFound={latestCrawl.pagesFound}
+        />
+      ) : null}
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={SearchCheck}
           label="Site health"
-          value={latestCrawl?.healthScore != null ? `${latestCrawl.healthScore}` : "—"}
-          suffix={latestCrawl?.healthScore != null ? "/100" : undefined}
-          note={latestCrawl ? `${latestCrawl.pagesFound} crawlede sider` : "Kør første scanning"}
-          tone="green"
+          value={completedCrawl && latestCrawl?.healthScore != null ? `${latestCrawl.healthScore}` : "—"}
+          suffix={completedCrawl && latestCrawl?.healthScore != null ? "/100" : undefined}
+          note={latestCrawl ? healthNote(latestCrawl.status, latestCrawl.pagesFound) : "Kør første scanning"}
+          tone={crawlTone}
         />
         <MetricCard
           icon={AlertTriangle}
           label="Findings"
           value={latestCrawl?.issuesFound?.toLocaleString() ?? "—"}
-          note={latestCrawl ? crawlStatusLabel(latestCrawl.status) : "Ingen scan endnu"}
-          tone="red"
+          note={latestCrawl ? crawlStatusLabel(latestCrawl.status, latestCrawl.coveragePercent) : "Ingen scan endnu"}
+          tone={latestCrawl?.status === "COMPLETED" ? "red" : latestCrawl ? "amber" : "blue"}
         />
         <MetricCard
           icon={FileText}
@@ -169,7 +182,9 @@ export default async function SiteOverviewPage({params}: SitePageProps) {
             <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Vigtigste findings</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">Seneste scanning</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {latestCrawl?.status === "COMPLETED" ? "Seneste komplette scanning" : "Seneste scanning · dækning ikke komplet"}
+                </p>
               </div>
               <Link
                 href={`/sites/${siteId}/crawl`}
@@ -196,9 +211,19 @@ export default async function SiteOverviewPage({params}: SitePageProps) {
               </div>
             ) : (
               <div className="flex min-h-56 flex-col items-center justify-center px-5 text-center">
-                <CheckCircle2 className="size-7 text-[#24a56f]" />
-                <p className="mt-3 text-sm font-semibold text-foreground">Ingen findings at vise</p>
-                <p className="mt-1 text-xs text-muted-foreground">Kør en scanning for at opdatere evidensen.</p>
+                {latestCrawl?.status === "COMPLETED" ? (
+                  <CheckCircle2 className="size-7 text-[#24a56f]" />
+                ) : (
+                  <SearchCheck className="size-7 text-[#388ee8]" />
+                )}
+                <p className="mt-3 text-sm font-semibold text-foreground">
+                  {latestCrawl?.status === "COMPLETED" ? "Ingen findings i den komplette scanning" : "Ingen findings at vise endnu"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {latestCrawl?.status === "COMPLETED"
+                    ? "Resultatet gælder kun den dokumenterede scan-dækning."
+                    : "Kør eller færdiggør en scanning for at opdatere evidensen."}
+                </p>
               </div>
             )}
           </div>
@@ -241,6 +266,33 @@ export default async function SiteOverviewPage({params}: SitePageProps) {
         </Link>
       </section>
     </div>
+  );
+}
+
+function ScanCoverageNotice({
+  status,
+  coveragePercent,
+  coverageReason,
+  pagesFound,
+}: {
+  status: string;
+  coveragePercent: number | null;
+  coverageReason: string | null;
+  pagesFound: number;
+}) {
+  return (
+    <section className="reliva-panel border-[#ead7aa] bg-[#fffaf0] px-4 py-3.5 sm:px-5">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 size-4.5 shrink-0 text-[#b97b13]" strokeWidth={1.9} />
+        <div>
+          <p className="text-sm font-semibold text-[#80570e]">Scanningen er ikke komplet</p>
+          <p className="mt-1 text-xs leading-5 text-[#76664b]">
+            Status: {crawlStatusLabel(status, coveragePercent)} · {pagesFound.toLocaleString("da-DK")} sider observeret.
+            {coverageReason ? ` ${coverageReason}` : " Resultater og findings er foreløbige, indtil dækningen er komplet."}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -305,9 +357,20 @@ function severityLabel(severity: string) {
   return severity === "CRITICAL" ? "Kritisk" : severity === "WARNING" ? "Advarsel" : "Info";
 }
 
-function crawlStatusLabel(status: string) {
-  if (status === "COMPLETED") return "Seneste scanning gennemført";
-  if (status === "RUNNING") return "Scanning kører";
+function healthNote(status: string, pagesFound: number) {
+  if (status === "COMPLETED") return `${pagesFound.toLocaleString("da-DK")} crawlede sider`;
+  if (status === "PARTIAL") return "Health score skjules ved delvis scan";
+  if (status === "RUNNING") return "Health score vises først efter komplet scan";
   if (status === "FAILED") return "Seneste scanning fejlede";
+  if (status === "CANCELLED") return "Seneste scanning blev annulleret";
+  return "Scanning afventer";
+}
+
+function crawlStatusLabel(status: string, coveragePercent?: number | null) {
+  if (status === "COMPLETED") return "Komplet scanning";
+  if (status === "PARTIAL") return `Delvis scanning${coveragePercent != null ? ` · ${Math.round(coveragePercent)}% dækning` : ""}`;
+  if (status === "RUNNING") return `Scanning kører${coveragePercent != null ? ` · ${Math.round(coveragePercent)}%` : ""}`;
+  if (status === "FAILED") return "Scanning fejlede";
+  if (status === "CANCELLED") return "Scanning annulleret";
   return "Scanning afventer";
 }
