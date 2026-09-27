@@ -1,0 +1,31 @@
+{
+  "brand": {
+    "name": "Reliva",
+    "product": "Visibility"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "websites": "Websites",
+    "seoAudit": "SEO Audit",
+    "tasks": "Tasks",
+    "opportunities": "Opportunities",
+    "googleImpact": "Google & impact",
+    "shopify": "Shopify",
+    "international": "International",
+    "monitoring": "Monitoring",
+    "operations": "Operations",
+    "connections": "Connections",
+    "settings": "Settings"
+  },
+  "common": {
+    "searchPlaceholder": "Search websites, pages, findings or tasks…",
+    "newScan": "New scan",
+    "connected": "Connected",
+    "signOut": "Sign out"
+  },
+  "login": {
+    "title": "Sign in to Reliva",
+    "description": "Employee access to SEO, tasks, data and verification.",
+    "google": "Continue with Google"
+  }
+}
