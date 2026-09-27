@@ -16,6 +16,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import {RELIVA_PRIMARY_AREAS, areaHref, type RelivaAreaKey} from "@/lib/reliva-ia";
 import {cn} from "@/lib/utils";
 
 type NavItem = {
@@ -28,6 +29,18 @@ type NavItem = {
 type NavGroup = {
   label?: string;
   items: NavItem[];
+};
+
+const areaIcons: Record<RelivaAreaKey, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  seoAudit: SearchCheck,
+  tasks: ClipboardCheck,
+  shopify: ShoppingBag,
+  international: Languages,
+  googleImpact: ChartNoAxesCombined,
+  monitoring: Activity,
+  operations: Wrench,
+  connections: PlugZap,
 };
 
 export function SidebarNav({
@@ -46,34 +59,41 @@ export function SidebarNav({
     ? match[1]
     : sites[0]?.id;
 
+  const dashboardArea = RELIVA_PRIMARY_AREAS.find((area) => area.key === "dashboard")!;
+  const connectionArea = RELIVA_PRIMARY_AREAS.find((area) => area.key === "connections")!;
+  const workspaceAreas = RELIVA_PRIMARY_AREAS.filter(
+    (area) => area.key !== "dashboard" && area.key !== "connections"
+  );
+
   const groups: NavGroup[] = [
     {
       items: [
-        {href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard, exact: true},
+        {
+          href: areaHref(dashboardArea, activeSiteId) ?? "/dashboard",
+          label: t("dashboard"),
+          icon: areaIcons.dashboard,
+          exact: true,
+        },
         {href: "/sites", label: t("websites"), icon: Globe2, exact: true},
-        {href: "/tasks", label: t("tasks"), icon: ClipboardCheck},
       ],
     },
   ];
 
-  if (activeSiteId) {
-    groups.push({
-      label: t("workspaces"),
-      items: [
-        {href: `/sites/${activeSiteId}/crawl`, label: t("seoAudit"), icon: SearchCheck},
-        {href: `/sites/${activeSiteId}/shopify`, label: t("shopify"), icon: ShoppingBag},
-        {href: `/sites/${activeSiteId}/international`, label: t("international"), icon: Languages},
-        {href: `/sites/${activeSiteId}/keywords`, label: t("googleImpact"), icon: ChartNoAxesCombined},
-        {href: `/sites/${activeSiteId}/alerts`, label: t("monitoring"), icon: Activity},
-        {href: `/sites/${activeSiteId}/operations`, label: t("operations"), icon: Wrench},
-      ],
-    });
+  const workspaceItems = workspaceAreas.flatMap((area) => {
+    const href = areaHref(area, activeSiteId);
+    if (!href) return [];
+    return [{href, label: t(area.key), icon: areaIcons[area.key]}];
+  });
 
+  if (workspaceItems.length > 0) {
+    groups.push({label: t("workspaces"), items: workspaceItems});
+  }
+
+  const connectionHref = areaHref(connectionArea, activeSiteId);
+  if (connectionHref) {
     groups.push({
       label: t("system"),
-      items: [
-        {href: `/sites/${activeSiteId}/settings`, label: t("connections"), icon: PlugZap},
-      ],
+      items: [{href: connectionHref, label: t("connections"), icon: areaIcons.connections}],
     });
   }
 
