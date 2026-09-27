@@ -3,6 +3,7 @@ import {signIn, auth} from "@/lib/auth";
 import {redirect} from "next/navigation";
 import {Check, ShieldCheck} from "lucide-react";
 import {Button} from "@/components/ui/button";
+import {LocaleToggle} from "@/components/layout/locale-toggle";
 import {RelivaMark} from "@/components/brand/reliva-mark";
 
 export default async function LoginPage() {
@@ -50,7 +51,11 @@ export default async function LoginPage() {
         <p className="relative z-10 text-xs text-slate-500">{t("employeeAccess")}</p>
       </section>
 
-      <section className="flex items-center justify-center px-5 py-10 sm:px-10">
+      <section className="relative flex items-center justify-center px-5 py-10 sm:px-10">
+        <div className="absolute right-5 top-5 sm:right-8 sm:top-8">
+          <LocaleToggle />
+        </div>
+
         <div className="w-full max-w-[430px]">
           <div className="mb-8 lg:hidden">
             <div className="inline-flex rounded-xl bg-[#172331] px-4 py-3">
