@@ -1,10 +1,10 @@
 import Link from "next/link";
 import {
-  CheckCircle2,
   CircleDot,
   Clock3,
   ShieldCheck,
   UserRound,
+  type LucideIcon,
 } from "lucide-react";
 import {auth} from "@/lib/auth";
 import {db} from "@/lib/db";
@@ -214,7 +214,7 @@ function TaskSummary({
   note,
   tone,
 }: {
-  icon: typeof CheckCircle2;
+  icon: LucideIcon;
   label: string;
   value: number;
   note: string;
