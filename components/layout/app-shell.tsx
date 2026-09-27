@@ -3,6 +3,7 @@
 import {useEffect, useState} from "react";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
+import {useTranslations} from "next-intl";
 import {
   Bell,
   Menu,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import {cn} from "@/lib/utils";
 import {RelivaMark} from "@/components/brand/reliva-mark";
+import {LocaleToggle} from "@/components/layout/locale-toggle";
 import {SidebarNav} from "@/components/layout/sidebar-nav";
 import {ThemeToggle} from "@/components/layout/theme-toggle";
 import {SiteSwitcher} from "@/components/sites/site-switcher";
@@ -27,6 +29,7 @@ type AppShellProps = {
 };
 
 export function AppShell({email, name, image, children, sites}: AppShellProps) {
+  const t = useTranslations("common");
   const displayName = name || email?.split("@")[0] || "User";
   const initial = displayName.charAt(0).toUpperCase();
   const pathname = usePathname();
@@ -163,12 +166,13 @@ export function AppShell({email, name, image, children, sites}: AppShellProps) {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               aria-label="Search Reliva"
-              placeholder="Søg i websites, sider, findings eller opgaver…"
+              placeholder={t("searchPlaceholder")}
               className="h-9 w-full rounded-lg border border-transparent bg-[#f0f3f6] pl-9 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#cdd9e5] focus:bg-white focus:ring-2 focus:ring-[#3aa9e8]/15"
             />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <LocaleToggle />
             <div className="hidden lg:block">
               <ThemeToggle />
             </div>
@@ -185,7 +189,7 @@ export function AppShell({email, name, image, children, sites}: AppShellProps) {
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#20a56f] px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#198e60]"
             >
               <Plus className="size-4" />
-              <span className="hidden sm:inline">Ny scanning</span>
+              <span className="hidden sm:inline">{t("newScan")}</span>
             </Link>
           </div>
         </header>
