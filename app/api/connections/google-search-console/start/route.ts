@@ -1,7 +1,7 @@
 import {randomBytes} from "node:crypto";
 import {cookies} from "next/headers";
 import {auth} from "@/lib/auth";
-import {getSiteAccess} from "@/lib/permissions";
+import {canManageSite, getSiteAccess} from "@/lib/permissions";
 import {
   createGscAuthorizationUrl,
   getGscRedirectUri,
@@ -24,6 +24,9 @@ export async function GET(request: Request) {
   const access = await getSiteAccess(userId, siteId);
   if (!access) {
     return Response.json({error: "Site not found or unauthorized"}, {status: 404});
+  }
+  if (!canManageSite(access.role)) {
+    return Response.json({error: "Admin access required to connect Search Console"}, {status: 403});
   }
 
   const state = randomBytes(32).toString("base64url");
