@@ -33,8 +33,17 @@
     "signOut": "Sign out"
   },
   "login": {
+    "eyebrow": "SEO operations workspace",
+    "heroTitle": "From finding to verified improvement.",
+    "heroDescription": "Reliva brings scans, Google data, Shopify evidence, tasks and verification into one calm operational workspace.",
+    "benefitShopify": "Read-only Shopify",
+    "benefitEvidence": "Evidence-backed findings",
+    "benefitTasks": "Tasks with verification",
+    "benefitGoogle": "GSC & Core Web Vitals",
+    "employeeAccess": "Employee access · Reliva Visibility",
     "title": "Sign in to Reliva",
-    "description": "Employee access to SEO, tasks, data and verification.",
-    "google": "Continue with Google"
+    "description": "Secure employee access to SEO, tasks, data and verification.",
+    "google": "Continue with Google",
+    "inviteOnly": "Sign-in is invite-only for employees. External integrations request the minimum required scopes, and Shopify remains read-only."
   }
 }
