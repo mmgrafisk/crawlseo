@@ -1,8 +1,7 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useState, useSyncExternalStore} from "react";
 import Link from "next/link";
-import {usePathname} from "next/navigation";
 import {useTranslations} from "next-intl";
 import {
   Bell,
@@ -28,32 +27,44 @@ type AppShellProps = {
   sites: {id: string; domain: string}[];
 };
 
+const SIDEBAR_EVENT = "reliva-sidebar-change";
+
+function getSidebarCollapsed() {
+  return localStorage.getItem("reliva-sidebar-collapsed") === "true";
+}
+
+function subscribeSidebar(onStoreChange: () => void) {
+  const handleChange = () => onStoreChange();
+  window.addEventListener("storage", handleChange);
+  window.addEventListener(SIDEBAR_EVENT, handleChange);
+  return () => {
+    window.removeEventListener("storage", handleChange);
+    window.removeEventListener(SIDEBAR_EVENT, handleChange);
+  };
+}
+
 export function AppShell({email, name, image, children, sites}: AppShellProps) {
   const t = useTranslations("common");
   const displayName = name || email?.split("@")[0] || "User";
   const initial = displayName.charAt(0).toUpperCase();
-  const pathname = usePathname();
   const [imgError, setImgError] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeSidebar, getSidebarCollapsed, () => false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const showImage = image && !imgError;
 
-  useEffect(() => setMobileOpen(false), [pathname]);
-  useEffect(() => {
-    const saved = localStorage.getItem("reliva-sidebar-collapsed");
-    if (saved === "true") setCollapsed(true);
-  }, []);
-
   function toggleCollapsed() {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("reliva-sidebar-collapsed", String(next));
+    localStorage.setItem("reliva-sidebar-collapsed", String(!collapsed));
+    window.dispatchEvent(new Event(SIDEBAR_EVENT));
+  }
+
+  function closeMobileNavigation() {
+    setMobileOpen(false);
   }
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
       <div className={cn("flex h-[74px] items-center px-5", collapsed && "justify-center px-2")}>
-        <Link href="/dashboard" aria-label="Reliva Visibility dashboard">
+        <Link href="/dashboard" aria-label="Reliva Visibility dashboard" onClick={closeMobileNavigation}>
           <RelivaMark compact={collapsed} />
         </Link>
       </div>
@@ -66,7 +77,7 @@ export function AppShell({email, name, image, children, sites}: AppShellProps) {
         </div>
       ) : null}
 
-      <SidebarNav sites={sites} collapsed={collapsed} />
+      <SidebarNav sites={sites} collapsed={collapsed} onNavigate={closeMobileNavigation} />
 
       <div className="mt-auto px-3 pb-4 pt-3">
         <button
@@ -84,6 +95,7 @@ export function AppShell({email, name, image, children, sites}: AppShellProps) {
         <div className={cn("border-t border-white/8 pt-3", collapsed && "flex justify-center")}>
           <Link
             href="/settings"
+            onClick={closeMobileNavigation}
             className={cn(
               "flex items-center rounded-xl transition hover:bg-white/[0.055]",
               collapsed ? "size-10 justify-center" : "gap-3 px-2 py-2"
@@ -130,7 +142,7 @@ export function AppShell({email, name, image, children, sites}: AppShellProps) {
           type="button"
           aria-label="Close navigation overlay"
           className="fixed inset-0 z-40 bg-slate-950/45 md:hidden"
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobileNavigation}
         />
       ) : null}
 
@@ -143,7 +155,7 @@ export function AppShell({email, name, image, children, sites}: AppShellProps) {
         <button
           type="button"
           aria-label="Close navigation"
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobileNavigation}
           className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-white"
         >
           <X className="size-4.5" />
