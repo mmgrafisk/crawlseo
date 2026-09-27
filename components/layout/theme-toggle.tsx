@@ -1,10 +1,17 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useSyncExternalStore} from "react";
 import {Monitor, Moon, Sun} from "lucide-react";
 import {cn} from "@/lib/utils";
 
 type Mode = "system" | "light" | "dark";
+
+const THEME_EVENT = "reliva-theme-change";
+
+function getMode(): Mode {
+  const saved = localStorage.getItem("reliva-theme");
+  return saved === "system" || saved === "dark" || saved === "light" ? saved : "light";
+}
 
 function applyMode(mode: Mode) {
   const root = document.documentElement;
@@ -15,19 +22,31 @@ function applyMode(mode: Mode) {
   root.classList.toggle("light", !dark);
 }
 
-export function ThemeToggle() {
-  const [mode, setMode] = useState<Mode>("light");
+function subscribe(onStoreChange: () => void) {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const handleChange = () => {
+    applyMode(getMode());
+    onStoreChange();
+  };
 
-  useEffect(() => {
-    const saved = (localStorage.getItem("reliva-theme") as Mode) || "light";
-    setMode(saved);
-    applyMode(saved);
-  }, []);
+  window.addEventListener("storage", handleChange);
+  window.addEventListener(THEME_EVENT, handleChange);
+  media.addEventListener("change", handleChange);
+
+  return () => {
+    window.removeEventListener("storage", handleChange);
+    window.removeEventListener(THEME_EVENT, handleChange);
+    media.removeEventListener("change", handleChange);
+  };
+}
+
+export function ThemeToggle() {
+  const mode = useSyncExternalStore(subscribe, getMode, () => "light" as Mode);
 
   function choose(next: Mode) {
-    setMode(next);
     localStorage.setItem("reliva-theme", next);
     applyMode(next);
+    window.dispatchEvent(new Event(THEME_EVENT));
   }
 
   const options = [
