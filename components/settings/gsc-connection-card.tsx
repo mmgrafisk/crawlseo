@@ -1,4 +1,5 @@
 import {CheckCircle2, ExternalLink, SearchCheck} from "lucide-react";
+import {GscPropertyPicker} from "@/components/settings/gsc-property-picker";
 import {cn} from "@/lib/utils";
 
 type Props = {
@@ -25,7 +26,7 @@ export function GscConnectionCard({
   const detail = connected
     ? property!
     : authorized
-      ? "Read-only Search Console-adgang er godkendt. Vælg eller tilknyt derefter den korrekte Search Console-property til websitet."
+      ? "Read-only Search Console-adgang er godkendt. Vælg derefter den korrekte Search Console-property til websitet."
       : "Search Console kræver en separat read-only godkendelse. Medarbejderlogin giver ikke automatisk adgang til SEO-data.";
 
   return (
@@ -54,13 +55,16 @@ export function GscConnectionCard({
       {feedback ? <GscFeedback state={feedback} /> : null}
 
       {canManage ? (
-        <a
-          href={`/api/connections/google-search-console/start?siteId=${encodeURIComponent(siteId)}`}
-          className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-[#cfd9e4] bg-white px-3 text-xs font-semibold text-[#26374b] shadow-sm transition hover:border-[#abc4d8] hover:bg-[#f8fbfd]"
-        >
-          <ExternalLink className="size-3.5" />
-          {authorized ? "Genautoriser read-only" : "Forbind read-only"}
-        </a>
+        <div className="mt-4 flex flex-col items-start gap-2">
+          <a
+            href={`/api/connections/google-search-console/start?siteId=${encodeURIComponent(siteId)}`}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#cfd9e4] bg-white px-3 text-xs font-semibold text-[#26374b] shadow-sm transition hover:border-[#abc4d8] hover:bg-[#f8fbfd]"
+          >
+            <ExternalLink className="size-3.5" />
+            {authorized ? "Genautoriser read-only" : "Forbind read-only"}
+          </a>
+          {authorized ? <GscPropertyPicker siteId={siteId} currentProperty={property} /> : null}
+        </div>
       ) : (
         <p className="mt-4 text-[11px] leading-5 text-muted-foreground">
           Kun ejer eller admin kan ændre integrationer. Du kan stadig se den dokumenterede forbindelsesstatus.
