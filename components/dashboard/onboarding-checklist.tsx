@@ -1,17 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import {useState} from "react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import {
-  Globe,
-  Link2,
-  RefreshCw,
-  Bug,
-  Check,
-  ChevronRight,
-  X,
-} from "lucide-react";
+import {Check, ChevronRight, Globe2, Link2, RefreshCw, SearchCheck, X} from "lucide-react";
+import {cn} from "@/lib/utils";
 
 type Step = {
   id: string;
@@ -39,128 +31,109 @@ export function OnboardingChecklist({
   firstSiteId,
 }: OnboardingChecklistProps) {
   const [dismissed, setDismissed] = useState(false);
-
   const allDone = hasSites && hasGscConnected && hasSyncedData && hasCrawled;
   if (allDone || dismissed) return null;
 
   const steps: Step[] = [
     {
       id: "add-site",
-      label: "Add a site",
-      description: "Connect a Google Search Console property to monitor",
-      icon: <Globe className="size-4" />,
+      label: "Tilføj website",
+      description: "Opret det website Reliva skal arbejde med.",
+      icon: <Globe2 className="size-4" />,
       done: hasSites,
       href: "/sites",
-      actionLabel: "Add site",
+      actionLabel: "Tilføj",
     },
     {
       id: "connect-gsc",
-      label: "Connect GSC",
-      description: "Link your Google Search Console for keyword and page data",
+      label: "Forbind Search Console",
+      description: "Read-only adgang til søgeperformance og landing pages.",
       icon: <Link2 className="size-4" />,
       done: hasGscConnected,
       href: firstSiteId ? `/sites/${firstSiteId}` : "/sites",
-      actionLabel: "Connect",
+      actionLabel: "Forbind",
     },
     {
       id: "first-sync",
-      label: "Sync GSC data",
-      description: "Pull the last 28 days of search performance data",
+      label: "Synkronisér GSC data",
+      description: "Hent den første dokumenterede periode fra Search Console.",
       icon: <RefreshCw className="size-4" />,
       done: hasSyncedData,
       href: firstSiteId ? `/sites/${firstSiteId}` : "/sites",
-      actionLabel: "Sync now",
+      actionLabel: "Synkronisér",
     },
     {
       id: "first-crawl",
-      label: "Run first crawl",
-      description: "Audit your site for technical SEO issues",
-      icon: <Bug className="size-4" />,
+      label: "Kør første SEO Audit",
+      description: "Scan websitet og opret findings med evidens.",
+      icon: <SearchCheck className="size-4" />,
       done: hasCrawled,
       href: firstSiteId ? `/sites/${firstSiteId}/crawl` : "/sites",
-      actionLabel: "Start crawl",
+      actionLabel: "Start scan",
     },
   ];
 
-  const completedCount = steps.filter((s) => s.done).length;
+  const completedCount = steps.filter((step) => step.done).length;
 
   return (
-    <div className="panel relative mb-6 overflow-hidden">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
-
-      <div className="flex items-start justify-between px-5 pt-5">
+    <section className="reliva-panel overflow-hidden">
+      <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-5">
         <div>
-          <h3 className="font-heading text-lg font-semibold text-foreground">
-            Get started
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {completedCount}/{steps.length} steps completed
+          <h2 className="text-sm font-semibold text-foreground">Kom godt i gang</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {completedCount}/{steps.length} grundtrin er færdige
           </p>
         </div>
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-          title="Dismiss"
+          className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          aria-label="Skjul onboarding"
         >
           <X className="size-4" />
         </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="mx-5 mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+      <div className="h-1 bg-[#eef2f6]">
         <div
-          className="h-full rounded-full bg-primary transition-all duration-300"
-          style={{ width: `${(completedCount / steps.length) * 100}%` }}
+          className="h-full bg-[#24a56f] transition-[width] duration-300"
+          style={{width: `${(completedCount / steps.length) * 100}%`}}
         />
       </div>
 
-      <div className="divide-y divide-border/40 px-2 pb-2 pt-4">
+      <div className="divide-y divide-border">
         {steps.map((step) => (
-          <div
-            key={step.id}
-            className={cn(
-              "flex items-center gap-4 rounded-xl px-3 py-3 transition",
-              step.done ? "opacity-60" : "hover:bg-muted/30"
-            )}
-          >
-            <div
+          <div key={step.id} className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+            <span
               className={cn(
                 "flex size-8 shrink-0 items-center justify-center rounded-full",
-                step.done
-                  ? "bg-signal/15 text-signal"
-                  : "bg-primary/10 text-primary"
+                step.done ? "bg-[#e5f7ef] text-[#159264]" : "bg-[#edf5ff] text-[#3d88df]"
               )}
             >
-              {step.done ? <Check className="size-4" /> : step.icon}
-            </div>
+              {step.done ? <Check className="size-4" strokeWidth={2.1} /> : step.icon}
+            </span>
 
             <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  "text-sm font-medium",
-                  step.done
-                    ? "text-muted-foreground line-through"
-                    : "text-foreground"
-                )}
-              >
+              <p className={cn("text-sm font-medium", step.done ? "text-muted-foreground" : "text-foreground")}>
                 {step.label}
               </p>
-              <p className="text-xs text-muted-foreground">{step.description}</p>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{step.description}</p>
             </div>
 
-            {!step.done && (
+            {step.done ? (
+              <span className="hidden text-[11px] font-semibold text-[#159264] sm:inline">Færdig</span>
+            ) : (
               <Link
                 href={step.href}
-                className="flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm transition hover:border-[#c9d6e2] hover:bg-[#f8fafc]"
               >
-                {step.actionLabel}
-                <ChevronRight className="size-3" />
+                <span className="hidden sm:inline">{step.actionLabel}</span>
+                <ChevronRight className="size-3.5" />
               </Link>
             )}
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
