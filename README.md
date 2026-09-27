@@ -1,244 +1,143 @@
-<div align="center">
+# Reliva Visibility
 
-<!-- Logo placeholder — replace with actual logo when available -->
-<!-- <img src="docs/screenshots/logo.png" alt="CrawlSEO" width="80" /> -->
+Reliva Visibility is a standalone, design-first SEO operations workspace for turning evidence into prioritized work and verified improvements.
 
-# CrawlSEO
+The application is being re-founded on a fork of the MIT-licensed CrawlSEO project. CrawlSEO remains an upstream donor for useful crawler, Search Console, PageSpeed and MCP primitives; Reliva owns the product architecture, design system, organization/team model, evidence semantics, task verification workflow and integrations built on top.
 
-### Open-source SEO monitoring for founders, not SEO specialists
+> **Current status:** active foundation build. The design-foundation pull request is intentionally draft until live visual QA, database migration verification, security triage and canonical MASTER writeback are complete.
 
-Google Search Console + Site Crawler + Core Web Vitals + MCP Server — all in one self-hosted dashboard. Free forever.
+## Product rules
 
-[![GitHub stars](https://img.shields.io/github/stars/crawlseo/crawlseo?style=flat-square)](https://github.com/crawlseo/crawlseo/stargazers)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](CONTRIBUTING.md)
-[![Docker](https://img.shields.io/badge/docker-ready-blue?style=flat-square&logo=docker)](docker-compose.yml)
+- Findings are evidence, not automatic external changes.
+- Shopify is read-only unless an explicit future product decision changes that rule.
+- `IMPLEMENTED_PENDING_VERIFICATION` is not `VERIFIED`; verification requires later evidence.
+- Partial scans must never be presented as complete or healthy.
+- Missing/unknown data is never rendered as a green zero.
+- Existing Directus `rv_*` data is preserved as a legacy migration source.
+- SEO guidance follows: Shopify official → Google official → documented observation → external heuristic.
 
-</div>
+## Foundation stack
 
----
+| Layer | Decision |
+|---|---|
+| App | Next.js 16 + React 19 |
+| Language | TypeScript strict |
+| UI | Tailwind CSS v4 + shadcn/ui + Reliva Design System |
+| i18n | next-intl (`da`, `en`) |
+| Database | PostgreSQL |
+| ORM | Prisma |
+| Authentication | Auth.js / NextAuth v5 |
+| Employees | Invite-only, Organization → Membership → User |
+| Roles | Owner / Admin / Manager / Employee / Viewer |
+| Validation | Zod |
+| Charts | Recharts |
+| Icons | Lucide React |
+| AI integration | MCP foundation |
+| Production direction | Vercel-first |
+| Docker | local/fallback only |
+| Knowledge CMS | Sanity (separate; not operational DB) |
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="CrawlSEO Dashboard" width="800" />
-</p>
+## Design contract
 
-## Why CrawlSEO?
+The interface is a desktop-first operational workspace: dark navy navigation, cool light primary canvas, restrained green/blue accents, clear status semantics, table/list-first operational data and compact but readable density.
 
-| | CrawlSEO | OpenSEO | Ahrefs | Semrush | Moz |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Price** | **Free** | $10/mo | €119/mo | $139/mo | $49/mo |
-| **Self-hosted** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **GSC integration** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Site crawler** | ✅ (2000 pages) | ✅ | ✅ | ✅ | ✅ |
-| **Core Web Vitals** | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **MCP Server** | ✅ (10 tools) | ✅ (24 tools) | ❌ | ❌ | ❌ |
-| **AI agent ready** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Keyword Research** | ✅ (BYOK) | ✅ | ✅ | ✅ | ✅ |
-| **Backlinks** | ✅ (BYOK) | ✅ | ✅ | ✅ | ✅ |
-| **Open source** | ✅ MIT | ✅ | ❌ | ❌ | ❌ |
-| **Your data stays yours** | ✅ | ✅ | ❌ | ❌ | ❌ |
+Read [`docs/RELIVA_DESIGN_SYSTEM.md`](docs/RELIVA_DESIGN_SYSTEM.md) before adding or restyling product UI.
 
-> **BYOK** = Bring Your Own Key. Keyword research and backlink data use DataForSEO (optional). Google Autocomplete suggestions work as a free fallback.
+## Core domain model
 
-## Features
+```text
+Organization
+  └─ Membership
+      └─ User
 
-### 🔍 GSC Analytics
+Organization
+  ├─ Site
+  │   ├─ Crawl
+  │   │   ├─ AuditPage
+  │   │   ├─ AuditLink
+  │   │   └─ CrawlIssue
+  │   ├─ GSC data
+  │   └─ Vitals
+  ├─ Task
+  ├─ Notification
+  └─ AuditLog
+```
 
-Keywords, pages, clicks, impressions, position tracking with 28-day comparison and delta indicators.
+Task verification flow:
 
-<p align="center">
-  <img src="docs/screenshots/keywords.png" alt="Keywords — GSC Analytics" width="800" />
-  <br />
-  <em>Top keywords with position badges, clicks, impressions, and CTR</em>
-</p>
+```text
+Finding
+  → Task
+  → In progress
+  → Implemented / pending verification
+  → later scan or other evidence
+  → Verified
+```
 
-### 🕷️ Site Crawler
+## Scan coverage
 
-Crawl up to 2,000 pages with concurrent fetching. Health score, 16 issue types, content scoring, and remediation guidance.
+Reliva tracks explicit coverage fields (`discoveredUrls`, `attemptedUrls`, `fetchedUrls`, `failedUrls`, `excludedUrls`, `sitemapUrls`, `coveragePercent`, `coverageReason`) and supports `PARTIAL` and `CANCELLED` scan states in addition to normal pending/running/completed/failed states.
 
-<p align="center">
-  <img src="docs/screenshots/audit.png" alt="Crawl / Audit" width="800" />
-  <br />
-  <em>Crawl results with health score, issue breakdown, and per-page audit data</em>
-</p>
+A health score from an incomplete scan must not be surfaced as a completed site-health result.
 
-### 🤖 MCP Server — AI Agent Integration
+## Authentication and employee access
 
-10 tools for Claude Code, Claude Desktop, and Cursor. Query your SEO data, run crawls, and find opportunities without leaving the terminal.
+There is no public employee registration. New employees require a valid, non-expired invitation for their e-mail address. Current roles are:
 
-<p align="center">
-  <img src="docs/screenshots/mcp.png" alt="AI & MCP" width="800" />
-  <br />
-  <em>MCP setup page with connection config, setup guides, and available tools</em>
-</p>
+- `OWNER`
+- `ADMIN`
+- `MANAGER`
+- `EMPLOYEE`
+- `VIEWER`
 
-### More features
+Google login currently also supplies read-only Search Console authorization. Legacy users without memberships are temporarily supported while the organization migration is completed.
 
-| | Feature | Description |
-|---|---|---|
-| ⚡ | **Core Web Vitals** | LCP, CLS, INP, TTFB via PageSpeed Insights with mobile/desktop comparison |
-| 🔑 | **Keyword Research** | DataForSEO-powered keyword ideas with volume, difficulty, CPC. Free Google Autocomplete fallback |
-| 🔗 | **Backlinks** | Backlink profile, referring domains, anchor text, dofollow/nofollow analysis |
-| 📊 | **Rank Tracking** | Historical position snapshots with saved keywords and notes |
-| 💡 | **SEO Opportunities** | Striking distance keywords, low CTR, content decay, cannibalization detection |
-| 🔔 | **Alerts** | Traffic drops, position changes, new 404s, vitals degradation — via email, Slack, Telegram, webhook |
-| 📥 | **CSV Export** | Export keywords and pages data for offline analysis |
-| 🌗 | **Dark / Light theme** | Custom design system with smooth theme toggle |
+## Local development
 
-## Quick Start
+Prerequisites: Node.js 20+ and PostgreSQL.
 
 ```bash
-git clone https://github.com/crawlseo/crawlseo.git
-cd crawlseo
-cp .env.example .env.local
-# Add your Google OAuth credentials to .env.local
-docker compose up -d db
 npm install
-npx prisma migrate dev --name init
+cp .env.example .env.local
+npx prisma generate
+npx prisma migrate dev
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), sign in with Google, and add your first site.
+The existing Docker Compose setup may be used as a local database/runtime fallback. It is no longer the default production direction.
 
-<details>
-<summary>🔑 Getting Google OAuth credentials</summary>
+## Automated gates
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project (or select existing)
-3. Enable the **Google Search Console API**
-4. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-5. Application type: **Web application**
-6. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-7. Copy Client ID and Client Secret to `.env.local`
+The standard pull-request workflow runs:
 
-Required scopes: `openid`, `email`, `profile`, `https://www.googleapis.com/auth/webmasters.readonly`
-
-</details>
-
-## MCP Server — AI Agent Integration
-
-CrawlSEO includes a Model Context Protocol server so AI agents can query your SEO data directly.
-
-Add to your Claude Code settings (`.claude/settings.json`):
-
-```json
-{
-  "mcpServers": {
-    "crawlseo": {
-      "command": "npx",
-      "args": ["tsx", "mcp/server.ts"],
-      "cwd": "/path/to/crawlseo"
-    }
-  }
-}
+```text
+npm ci
+Prisma generate
+Prisma validate
+TypeScript typecheck
+ESLint on changed TypeScript files
+Vitest
+Next.js production build
 ```
 
-**10 tools available:**
+Passing CI means **automated-tested**, not live-tested or production-verified.
 
-| Category | Tools |
-|---|---|
-| **Sites** | `list_sites`, `get_site_overview` |
-| **Keywords & Pages** | `get_keywords`, `get_pages`, `get_traffic` |
-| **Crawl & Audit** | `run_crawl`, `get_crawl_status`, `get_crawl_issues` |
-| **Performance** | `get_vitals`, `get_opportunities` |
+## Current production blockers
 
-Works with Claude Code, Claude Desktop, and Cursor. See [`mcp/README.md`](mcp/README.md) for full setup guide.
+Before the foundation can be called production-verified:
 
-## Tech Stack
+- run desktop/mobile live visual QA against the accepted design direction
+- test the additive Prisma migration on a disposable copy/database
+- triage dependency audit findings; do not use `npm audit fix --force`
+- review Google OAuth token-at-rest hardening
+- wire an employee invitation e-mail provider if e-mail delivery is required
+- configure the Vercel production environment and production PostgreSQL target
+- update the canonical Reliva Visibility MASTER
 
-| Layer | Technology |
-|---|---|
-| **Framework** | [Next.js 16](https://nextjs.org/) (App Router) |
-| **Language** | [TypeScript](https://www.typescriptlang.org/) |
-| **Database** | [PostgreSQL](https://www.postgresql.org/) |
-| **ORM** | [Prisma](https://www.prisma.io/) |
-| **Auth** | [NextAuth.js v5](https://authjs.dev/) |
-| **UI** | [shadcn/ui](https://ui.shadcn.com/) + [Tailwind CSS v4](https://tailwindcss.com/) |
-| **Charts** | [Recharts](https://recharts.org/) |
-| **Icons** | [Lucide React](https://lucide.dev/) |
-| **MCP** | [@modelcontextprotocol/sdk](https://modelcontextprotocol.io/) |
-| **Deployment** | Docker Compose |
+## Source of truth
 
-## Self-Hosting
+The canonical project governance/source of truth remains `Reliva_Visibility_MASTER.md` in the private `mmgrafisk/Reliva-Visibility` repository until the migration of governance files is explicitly changed.
 
-### Docker Compose (recommended)
+## Upstream and license
 
-```bash
-git clone https://github.com/crawlseo/crawlseo.git
-cd crawlseo
-cp .env.example .env
-# Edit .env with your credentials
-docker compose pull
-docker compose up -d
-```
-
-Compose pulls the prebuilt `ghcr.io/crawlseo/crawlseo:latest` image, so deployment
-credentials are only needed at runtime. Images support `linux/amd64` and
-`linux/arm64`, and database migrations run automatically when the container
-starts.
-
-Version tags are also published as immutable image tags (for example, `1.2.3`)
-and minor-version tags (for example, `1.2`). To use a pinned release or an image
-from a fork, set `CRAWLSEO_IMAGE` in `.env`:
-
-```bash
-CRAWLSEO_IMAGE=ghcr.io/crawlseo/crawlseo:1.2.3
-```
-
-To build locally instead, build the same image name before starting Compose:
-
-```bash
-docker build -t crawlseo:local .
-CRAWLSEO_IMAGE=crawlseo:local docker compose up -d
-```
-
-### Manual
-
-```bash
-# Prerequisites: Node.js 20+, PostgreSQL
-
-npm install
-cp .env.example .env.local
-# Configure .env.local
-
-npx prisma migrate deploy
-npm run build
-npm start
-```
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `NEXTAUTH_SECRET` | Yes | Session encryption key (`openssl rand -hex 32`) |
-| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
-| `NEXTAUTH_URL` | No | Base URL (auto-detected in most environments) |
-
-## Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-```bash
-# Fork the repo, then:
-git checkout -b feature/your-feature
-# Make your changes
-git commit -m "feat: add your feature"
-git push origin feature/your-feature
-# Open a Pull Request
-```
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-
-Built by [Brandson Digital](https://brandson.digital) · Created by [Mike](https://m1ke.digital)
-
-Self-hosted SEO tools should be free. Your data should be yours.
-
-</div>
+Reliva Visibility currently incorporates and adapts MIT-licensed CrawlSEO code. The original MIT copyright/license notice remains in [`LICENSE`](LICENSE). See [`NOTICE.md`](NOTICE.md) for attribution and [`docs/UPSTREAM_CRAWLSEO_README.md`](docs/UPSTREAM_CRAWLSEO_README.md) for upstream context.
