@@ -5,10 +5,17 @@ type Props = {
   siteId: string;
   property: string | null;
   authorized: boolean;
+  canManage: boolean;
   feedback?: string;
 };
 
-export function GscConnectionCard({siteId, property, authorized, feedback}: Props) {
+export function GscConnectionCard({
+  siteId,
+  property,
+  authorized,
+  canManage,
+  feedback,
+}: Props) {
   const connected = authorized && Boolean(property);
   const status = connected
     ? "Forbundet"
@@ -46,13 +53,19 @@ export function GscConnectionCard({siteId, property, authorized, feedback}: Prop
       <p className="mt-3 text-xs leading-5 text-muted-foreground">{detail}</p>
       {feedback ? <GscFeedback state={feedback} /> : null}
 
-      <a
-        href={`/api/connections/google-search-console/start?siteId=${encodeURIComponent(siteId)}`}
-        className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-[#cfd9e4] bg-white px-3 text-xs font-semibold text-[#26374b] shadow-sm transition hover:border-[#abc4d8] hover:bg-[#f8fbfd]"
-      >
-        <ExternalLink className="size-3.5" />
-        {authorized ? "Genautoriser read-only" : "Forbind read-only"}
-      </a>
+      {canManage ? (
+        <a
+          href={`/api/connections/google-search-console/start?siteId=${encodeURIComponent(siteId)}`}
+          className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-[#cfd9e4] bg-white px-3 text-xs font-semibold text-[#26374b] shadow-sm transition hover:border-[#abc4d8] hover:bg-[#f8fbfd]"
+        >
+          <ExternalLink className="size-3.5" />
+          {authorized ? "Genautoriser read-only" : "Forbind read-only"}
+        </a>
+      ) : (
+        <p className="mt-4 text-[11px] leading-5 text-muted-foreground">
+          Kun ejer eller admin kan ændre integrationer. Du kan stadig se den dokumenterede forbindelsesstatus.
+        </p>
+      )}
     </div>
   );
 }
@@ -67,6 +80,11 @@ function GscFeedback({state}: {state: string}) {
     denied: {
       title: "Forbindelsen blev ikke godkendt",
       text: "Der blev ikke gemt ny Search Console-adgang.",
+      positive: false,
+    },
+    forbidden: {
+      title: "Manglende rettighed",
+      text: "Kun ejer eller admin kan ændre Search Console-forbindelsen.",
       positive: false,
     },
     state_error: {
