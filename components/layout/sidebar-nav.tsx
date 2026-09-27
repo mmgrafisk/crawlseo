@@ -35,9 +35,11 @@ type NavGroup = {
 export function SidebarNav({
   sites,
   collapsed = false,
+  onNavigate,
 }: {
   sites: {id: string; domain: string}[];
   collapsed?: boolean;
+  onNavigate?: () => void;
 }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
@@ -95,7 +97,13 @@ export function SidebarNav({
           ) : null}
           <div className="space-y-1">
             {group.items.map((item) => (
-              <SidebarLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
+              <SidebarLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                collapsed={collapsed}
+                onNavigate={onNavigate}
+              />
             ))}
           </div>
         </div>
@@ -104,7 +112,17 @@ export function SidebarNav({
   );
 }
 
-function SidebarLink({item, pathname, collapsed}: {item: NavItem; pathname: string; collapsed: boolean}) {
+function SidebarLink({
+  item,
+  pathname,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const active = item.exact
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -114,6 +132,7 @@ function SidebarLink({item, pathname, collapsed}: {item: NavItem; pathname: stri
     <Link
       href={item.href}
       title={collapsed ? item.label : undefined}
+      onClick={onNavigate}
       className={cn(
         "group flex h-10 items-center rounded-lg text-[13px] font-medium transition-colors",
         collapsed ? "justify-center px-0" : "gap-3 px-3",
