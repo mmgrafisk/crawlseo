@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {usePathname} from "next/navigation";
+import {useTranslations} from "next-intl";
 import {
   Activity,
   Bot,
@@ -37,6 +38,7 @@ export function SidebarNav({
   sites: {id: string; domain: string}[];
   collapsed?: boolean;
 }) {
+  const t = useTranslations("nav");
   const pathname = usePathname();
   const match = pathname.match(/\/sites\/([^/]+)/);
   const activeSiteId = match?.[1] && sites.some((site) => site.id === match[1]) ? match[1] : sites[0]?.id;
@@ -44,8 +46,8 @@ export function SidebarNav({
   const groups: NavGroup[] = [
     {
       items: [
-        {href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true},
-        {href: "/sites", label: "Websites", icon: Globe2, exact: true},
+        {href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard, exact: true},
+        {href: "/sites", label: t("websites"), icon: Globe2, exact: true},
       ],
     },
   ];
@@ -53,28 +55,28 @@ export function SidebarNav({
   if (activeSiteId) {
     groups.push(
       {
-        label: "SEO workspace",
+        label: t("seoWorkspace"),
         items: [
-          {href: `/sites/${activeSiteId}/crawl`, label: "SEO Audit", icon: SearchCheck},
-          {href: `/sites/${activeSiteId}/pages`, label: "Sider & indhold", icon: FileSearch},
-          {href: `/sites/${activeSiteId}/opportunities`, label: "Muligheder", icon: Lightbulb},
-          {href: `/sites/${activeSiteId}/keywords`, label: "Google & effekt", icon: ChartNoAxesCombined},
-          {href: `/sites/${activeSiteId}/vitals`, label: "Performance", icon: CircleGauge},
-          {href: `/sites/${activeSiteId}/alerts`, label: "Monitorering", icon: Activity},
+          {href: `/sites/${activeSiteId}/crawl`, label: t("seoAudit"), icon: SearchCheck},
+          {href: `/sites/${activeSiteId}/pages`, label: t("pagesContent"), icon: FileSearch},
+          {href: `/sites/${activeSiteId}/opportunities`, label: t("opportunities"), icon: Lightbulb},
+          {href: `/sites/${activeSiteId}/keywords`, label: t("googleImpact"), icon: ChartNoAxesCombined},
+          {href: `/sites/${activeSiteId}/vitals`, label: t("performance"), icon: CircleGauge},
+          {href: `/sites/${activeSiteId}/alerts`, label: t("monitoring"), icon: Activity},
         ],
       },
       {
-        label: "Research",
+        label: t("research"),
         items: [
-          {href: `/sites/${activeSiteId}/keyword-research`, label: "Keyword research", icon: SearchCheck},
-          {href: `/sites/${activeSiteId}/backlinks`, label: "Backlinks", icon: Link2},
+          {href: `/sites/${activeSiteId}/keyword-research`, label: t("keywordResearch"), icon: SearchCheck},
+          {href: `/sites/${activeSiteId}/backlinks`, label: t("backlinks"), icon: Link2},
         ],
       },
       {
-        label: "System",
+        label: t("system"),
         items: [
-          {href: `/sites/${activeSiteId}/mcp`, label: "AI & MCP", icon: Bot},
-          {href: `/sites/${activeSiteId}/settings`, label: "Forbindelser", icon: Settings},
+          {href: `/sites/${activeSiteId}/mcp`, label: t("aiMcp"), icon: Bot},
+          {href: `/sites/${activeSiteId}/settings`, label: t("connections"), icon: Settings},
         ],
       }
     );
@@ -91,12 +93,7 @@ export function SidebarNav({
           ) : null}
           <div className="space-y-1">
             {group.items.map((item) => (
-              <SidebarLink
-                key={item.href}
-                item={item}
-                pathname={pathname}
-                collapsed={collapsed}
-              />
+              <SidebarLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
             ))}
           </div>
         </div>
